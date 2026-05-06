@@ -1,0 +1,94 @@
+[
+  {
+    "id": "royal-dream",
+    "slug": "royal-dream",
+    "name": "Royal Dream",
+    "publisher": "Coin Royal Dream",
+    "description": "Top-up Diamond & Koin Royal Dream dengan harga terbaik, proses cepat dan aman.",
+    "cover": "/games/royal-dream.png",
+    "emoji": "👑",
+    "currency": "Chip",
+    "currencyIcon": "🎰",
+    "extraCurrencies": [
+      {
+        "key": "b",
+        "label": "B",
+        "icon": "🪙"
+      },
+      {
+        "key": "m",
+        "label": "M",
+        "icon": "🎰"
+      },
+      {
+        "key": "100m",
+        "label": "100M",
+        "icon": "✨"
+      }
+    ],
+    "color": "#ec4899",
+    "gradient": "linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%)",
+    "isActive": true,
+    "isNew": false,
+    "isHot": true,
+    "sortOrder": 1
+  },
+  {
+    "id": "higgs-domino",
+    "slug": "higgs-domino",
+    "name": "Higgs Domino",
+    "publisher": "Higgs Games",
+    "description": "Top-up Koin & Chip Higgs Domino Island resmi dengan harga termurah.",
+    "cover": "/games/higgs-domino.png",
+    "emoji": "🎰",
+    "currency": "Chip",
+    "currencyIcon": "🎰",
+    "extraCurrencies": [
+      {
+        "key": "b",
+        "label": "B",
+        "icon": "🪙"
+      },
+      {
+        "key": "m",
+        "label": "M",
+        "icon": "🎰"
+      }
+    ],
+    "color": "#22c55e",
+    "gradient": "linear-gradient(135deg, #14532d 0%, #0f172a 100%)",
+    "isActive": true,
+    "isNew": true,
+    "isHot": false,
+    "sortOrder": 5
+  },
+  {
+    "id": "boss-party",
+    "slug": "boss-party",
+    "name": "Boss Party",
+    "publisher": "BossGAME",
+    "description": "Boss Party menyediakan game lokal Indonesia, mulai dari: QiuQiu, Kamar Biasa, Kamar Bet, Happy Fishing. Unduh dan mainkan Boss Party sekarang!",
+    "cover": "/games/boss-party.png",
+    "emoji": "🎮",
+    "currency": "Chip",
+    "currencyIcon": "🎰",
+    "extraCurrencies": [
+      {
+        "key": "b",
+        "label": "B",
+        "icon": "🪙"
+      },
+      {
+        "key": "m",
+        "label": "M",
+        "icon": "🎰"
+      }
+    ],
+    "color": "#a78bfa",
+    "gradient": "linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%)",
+    "isActive": true,
+    "isHot": false,
+    "isNew": false,
+    "sortOrder": 0
+  }
+]

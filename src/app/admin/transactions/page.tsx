@@ -91,8 +91,15 @@ export default function AdminTransactionsPage() {
   const [showExport, setShowExport] = useState(false);
   const [exporting,  setExporting]  = useState<"csv"|"xlsx"|null>(null);
 
+  /* ── Bulk select state ── */
+  const [selectedIds,   setSelectedIds]   = useState<Set<string>>(new Set());
+  const [bulkStatus,    setBulkStatus]    = useState<string>("selesai");
+  const [bulkDeleting,  setBulkDeleting]  = useState(false);
+  const [bulkUpdating,  setBulkUpdating]  = useState(false);
+  const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false);
+
   /* ── Date filter state ── */
-  const todayStr = new Date().toISOString().slice(0, 10);  // "YYYY-MM-DD"
+  const todayStr = new Date().toISOString().slice(0, 10);
   const [showToday, setShowToday] = useState(false);
   const [dateFrom,  setDateFrom]  = useState("");
   const [dateTo,    setDateTo]    = useState("");
@@ -165,7 +172,61 @@ export default function AdminTransactionsPage() {
 
   useEffect(() => { if (showLogs) fetchLogs(); }, [showLogs, fetchLogs]);
 
-  /* ── Delete transaksi ── */
+  /* ── Bulk select helpers — declared after filtered below ── */
+
+  const toggleOne = (id: string) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  };
+
+  /* ── Bulk update status ── */
+  const handleBulkStatus = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkUpdating(true);
+    const ids = Array.from(selectedIds);
+    try {
+      await Promise.all(ids.map(id =>
+        fetch(`/api/admin/transactions/${id}`, {
+          method: "PATCH", headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ status: bulkStatus }),
+        })
+      ));
+      setTransactions(prev => prev.map(t =>
+        ids.includes(t.id) ? { ...t, status: bulkStatus as Transaction["status"] } : t
+      ));
+      setSelectedIds(new Set());
+    } catch { fetchTransactions(); }
+    finally { setBulkUpdating(false); }
+  };
+
+  /* ── Bulk delete ── */
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    setBulkDeleting(true);
+    const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") ?? "" : "";
+    const ids   = Array.from(selectedIds);
+    try {
+      await Promise.all(ids.map(id =>
+        fetch(`/api/admin/transactions/${id}`, {
+          method: "DELETE",
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      ));
+      setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
+      setSelectedIds(new Set());
+      setShowBulkDeleteConfirm(false);
+      if (showLogs) fetchLogs();
+    } catch (err: any) {
+      alert(err.message);
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
+  /* ── Delete transaksi (single) ── */
   const handleDelete = async () => {
     if (!deleteTarget) return;
     setDeleting(true);
@@ -375,6 +436,19 @@ export default function AdminTransactionsPage() {
 
   const activeGames = GAMES.filter(g => g.isActive);
 
+  /* ── Bulk select helpers (needs filtered) ── */
+  const allFilteredIds = filtered.map(t => t.id);
+  const allSelected    = allFilteredIds.length > 0 && allFilteredIds.every(id => selectedIds.has(id));
+  const someSelected   = allFilteredIds.some(id => selectedIds.has(id)) && !allSelected;
+
+  const toggleSelectAll = () => {
+    if (allSelected) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(allFilteredIds));
+    }
+  };
+
   /* ════════════════════════════════════════════ */
   return (
     <>
@@ -550,6 +624,76 @@ export default function AdminTransactionsPage() {
       )}
 
 
+      {/* ── BULK ACTION BAR — appears when rows are selected ── */}
+      {selectedIds.size > 0 && (
+        <div
+          className="flex items-center gap-3 flex-wrap mb-3 px-4 py-3 rounded-2xl"
+          style={{
+            background: "rgba(251,191,36,0.08)",
+            border: "1.5px solid rgba(251,191,36,0.35)",
+            animation: "slide-up 0.25s ease",
+          }}
+        >
+          {/* Count badge */}
+          <div className="flex items-center gap-2">
+            <span
+              className="text-xs font-black px-2.5 py-1 rounded-full"
+              style={{ background: "#fbbf24", color: "#0f172a" }}
+            >
+              {selectedIds.size} dipilih
+            </span>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="text-xs font-semibold hover:opacity-70 transition-all"
+              style={{ color: "var(--text-muted)" }}
+            >
+              Batal pilih
+            </button>
+          </div>
+
+          <div className="flex-1 h-px" style={{ background: "rgba(251,191,36,0.2)" }} />
+
+          {/* Bulk status change */}
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>Ubah status ke:</span>
+            <select
+              id="bulk-status-select"
+              value={bulkStatus}
+              onChange={e => setBulkStatus(e.target.value)}
+              className="text-xs px-2 py-1.5 rounded-lg cursor-pointer"
+              style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)" }}
+            >
+              <option value="pending">Pending</option>
+              <option value="selesai">Selesai</option>
+              <option value="batal">Batal</option>
+            </select>
+            <button
+              id="bulk-update-status-btn"
+              onClick={handleBulkStatus}
+              disabled={bulkUpdating}
+              className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl transition-all hover:opacity-90"
+              style={{ background: "linear-gradient(135deg,#fbbf24,#f59e0b)", color: "#0f172a" }}
+            >
+              {bulkUpdating
+                ? <Loader2 size={12} className="animate-spin" />
+                : <Save size={12} />}
+              Terapkan
+            </button>
+          </div>
+
+          {/* Bulk delete */}
+          <button
+            id="bulk-delete-btn"
+            onClick={() => setShowBulkDeleteConfirm(true)}
+            className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl transition-all hover:opacity-90"
+            style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.35)" }}
+          >
+            <Trash2 size={12} />
+            Hapus {selectedIds.size} Transaksi
+          </button>
+        </div>
+      )}
+
       {/* Table */}
       <div className="card overflow-hidden">
         {loading ? (
@@ -571,9 +715,20 @@ export default function AdminTransactionsPage() {
             <table className="table-styled">
               <thead>
                 <tr>
-                  <th>Proses</th><th>Invoice</th><th>Game ID</th><th>Nama</th>
+                  {/* SELECT ALL checkbox in header */}
+                  <th style={{ width: 44, textAlign: "center", padding: "10px 8px" }}>
+                    <input
+                      type="checkbox"
+                      id="select-all-checkbox"
+                      checked={allSelected}
+                      ref={el => { if (el) el.indeterminate = someSelected; }}
+                      onChange={toggleSelectAll}
+                      style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#fbbf24" }}
+                    />
+                  </th>
+                  <th>Invoice</th><th>Game ID</th><th>Nama</th>
                   <th>Paket</th><th>Harga</th><th>WhatsApp</th><th>Catatan</th>
-                   <th>Waktu</th><th>Status</th><th>Ubah Status</th>
+                  <th>Waktu</th><th>Status</th><th>Ubah Status</th>
                 </tr>
               </thead>
               <tbody>
@@ -587,14 +742,19 @@ export default function AdminTransactionsPage() {
                       background: "rgba(251,191,36,0.07)",
                       outline: "1px solid rgba(251,191,36,0.3)",
                       animation: "pulse 1s ease-in-out 3",
+                    } : selectedIds.has(t.id) ? {
+                      background: "rgba(251,191,36,0.05)",
+                      outline: "1px solid rgba(251,191,36,0.2)",
                     } : undefined}>
-                      <td>
-                        <button id={`process-${t.id}`} onClick={() => toggleProcess(t)}
-                          className="transition-transform hover:scale-110" title="Tandai diproses" disabled={isBusy}>
-                          {t.is_processed
-                            ? <CheckSquare size={20} style={{ color: "#10b981" }} />
-                            : <Square size={20} style={{ color: "var(--text-muted)" }} />}
-                        </button>
+                      {/* Per-row checkbox */}
+                      <td style={{ textAlign: "center", padding: "8px" }}>
+                        <input
+                          type="checkbox"
+                          id={`select-${t.id}`}
+                          checked={selectedIds.has(t.id)}
+                          onChange={() => toggleOne(t.id)}
+                          style={{ width: 16, height: 16, cursor: "pointer", accentColor: "#fbbf24" }}
+                        />
                       </td>
                       <td>
                         <code className="text-xs font-mono" style={{ color: "#fbbf24" }}>{t.invoice_id}</code>
@@ -827,6 +987,54 @@ export default function AdminTransactionsPage() {
                 style={{ background: "#ef4444", color: "white", opacity: deleting ? 0.7 : 1 }}>
                 {deleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
                 {deleting ? "Menghapus..." : "Hapus Transaksi"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL BULK DELETE CONFIRM ── */}
+      {showBulkDeleteConfirm && (
+        <div className="modal-overlay" onClick={e => e.target === e.currentTarget && setShowBulkDeleteConfirm(false)}>
+          <div className="modal-content" style={{ maxWidth: 400 }}>
+            <div className="flex items-start gap-4 mb-5">
+              <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
+                style={{ background: "rgba(239,68,68,0.15)" }}>
+                <Trash2 size={22} style={{ color: "#ef4444" }} />
+              </div>
+              <div>
+                <h2 className="font-bold text-lg mb-1" style={{ color: "var(--text-primary)" }}>
+                  Hapus {selectedIds.size} Transaksi?
+                </h2>
+                <p className="text-sm" style={{ color: "var(--text-muted)" }}>
+                  Semua transaksi yang dipilih akan dihapus permanen. Tindakan ini tidak dapat dibatalkan.
+                </p>
+              </div>
+            </div>
+            <div
+              className="flex items-center gap-2 p-3 rounded-xl mb-5 text-xs"
+              style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}
+            >
+              <AlertTriangle size={13} />
+              {selectedIds.size} transaksi akan dihapus sekaligus dan dicatat di log history.
+            </div>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBulkDeleteConfirm(false)}
+                disabled={bulkDeleting}
+                className="btn-outline flex-1"
+              >
+                Batal
+              </button>
+              <button
+                id="confirm-bulk-delete-btn"
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                className="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-semibold text-sm"
+                style={{ background: "#ef4444", color: "white", opacity: bulkDeleting ? 0.7 : 1 }}
+              >
+                {bulkDeleting ? <Loader2 size={14} className="animate-spin" /> : <Trash2 size={14} />}
+                {bulkDeleting ? "Menghapus..." : `Hapus ${selectedIds.size} Transaksi`}
               </button>
             </div>
           </div>

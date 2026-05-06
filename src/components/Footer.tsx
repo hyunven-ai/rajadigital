@@ -19,7 +19,7 @@ export default function Footer() {
           <div className="md:col-span-2">
             <div className="flex items-center gap-2 mb-4">
               <Image
-                src="https://res.cloudinary.com/dzojrrwtr/image/upload/v1777905847/logo-raja-digital_rtuitd.webp"
+                src="https://res.cloudinary.com/dzojrrwtr/image/upload/v1778049885/logo-raja-digital-webp_hwu82q.webp"
                 alt="RAJA DIGITAL"
                 width={160}
                 height={56}

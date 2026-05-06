@@ -61,7 +61,7 @@ export default function Navbar() {
             className="absolute left-1/2 -translate-x-1/2 flex items-center"
           >
             <Image
-              src="https://res.cloudinary.com/dzojrrwtr/image/upload/v1777905847/logo-raja-digital_rtuitd.webp"
+              src="https://res.cloudinary.com/dzojrrwtr/image/upload/v1778049885/logo-raja-digital-webp_hwu82q.webp"
               alt="RAJA DIGITAL"
               width={130}
               height={44}
@@ -116,7 +116,7 @@ export default function Navbar() {
           {/* Logo */}
           <Link href="/" className="flex items-center" id="navbar-logo">
             <Image
-              src="https://res.cloudinary.com/dzojrrwtr/image/upload/v1777905847/logo-raja-digital_rtuitd.webp"
+              src="https://res.cloudinary.com/dzojrrwtr/image/upload/v1778049885/logo-raja-digital-webp_hwu82q.webp"
               alt="RAJA DIGITAL"
               width={140}
               height={48}

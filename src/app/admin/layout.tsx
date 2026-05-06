@@ -47,7 +47,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="px-6 py-5" style={{ borderBottom: "1px solid var(--border)" }}>
           <Link href="/admin/dashboard" className="flex items-center gap-2">
             <Image
-              src="https://res.cloudinary.com/dzojrrwtr/image/upload/v1777905847/logo-raja-digital_rtuitd.webp"
+              src="https://res.cloudinary.com/dzojrrwtr/image/upload/v1778049885/logo-raja-digital-webp_hwu82q.webp"
               alt="RAJA DIGITAL"
               width={130}
               height={44}

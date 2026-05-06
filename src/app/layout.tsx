@@ -51,6 +51,10 @@ export async function generateMetadata(): Promise<Metadata> {
     title,
     description,
     keywords,
+    icons: {
+      icon: "https://res.cloudinary.com/dzojrrwtr/image/upload/v1778050105/icon-raja-digital-webp_pstu3k.webp",
+      apple: "https://res.cloudinary.com/dzojrrwtr/image/upload/v1778050105/icon-raja-digital-webp_pstu3k.webp",
+    },
     openGraph: {
       title,
       description,

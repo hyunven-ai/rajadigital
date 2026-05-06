@@ -1,12 +1,18 @@
 import { createClient } from "@supabase/supabase-js";
 import type { Product, Transaction, WaNumber, SeoSettings } from "@/types";
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
-const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
+const supabaseUrl     = process.env.NEXT_PUBLIC_SUPABASE_URL     ?? "";
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY  ?? "";
 
 // ── Browser client (anon key, subject to RLS) ──────────────────────────────
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Use lazy getter so module-level evaluation doesn't crash during build
+export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
+  get(_target, prop) {
+    const client = createClient(supabaseUrl, supabaseAnonKey);
+    return (client as any)[prop];
+  },
+});
 
 // ── Server client (service role, bypasses RLS) ─────────────────────────────
 // Use this only in API routes / server components — never expose service key!

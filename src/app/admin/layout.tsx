@@ -6,12 +6,13 @@ import { usePathname, useRouter } from "next/navigation";
 import Image from "next/image";
 import {
   LayoutDashboard, ShoppingCart, Package, Settings, Users,
-  LogOut, Menu, X, Bell, ChevronRight, Gamepad2, ImageIcon, Images,
+  LogOut, Menu, X, Bell, ChevronRight, Gamepad2, ImageIcon, Images, Zap,
 } from "lucide-react";
 
 const navItems = [
   { href: "/admin/dashboard",    label: "Dashboard",         icon: LayoutDashboard },
   { href: "/admin/transactions", label: "Transaksi",          icon: ShoppingCart },
+  { href: "/admin/bongkar-chip", label: "Bongkar Chip",       icon: Zap },
   { href: "/admin/products",     label: "Produk",             icon: Package },
   { href: "/admin/banners",      label: "Banner",             icon: ImageIcon },
   { href: "/admin/gallery",      label: "Gallery",            icon: Images },

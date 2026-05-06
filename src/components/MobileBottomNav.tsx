@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, MessageCircle, Tag, X } from "lucide-react";
+import { Home, MessageCircle, Tag, X, Zap } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 
 interface WidgetSettings {
@@ -319,7 +319,7 @@ export default function MobileBottomNav() {
             height: "64px",
             maxWidth: "480px",
             margin: "0 auto",
-            padding: "0 8px",
+            padding: "0 4px",
           }}
         >
           {/* Home */}
@@ -355,6 +355,39 @@ export default function MobileBottomNav() {
             </span>
           </Link>
 
+          {/* Bongkar */}
+          <Link
+            id="mobile-nav-bongkar"
+            href="/bongkar-chip"
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center",
+              justifyContent: "center", gap: "3px", flex: 1,
+              textDecoration: "none", padding: "6px 0",
+            }}
+          >
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: "28px", height: "28px", borderRadius: "8px",
+              background: pathname === "/bongkar-chip" ? "rgba(239,68,68,0.15)" : "transparent",
+              transition: "background 0.2s",
+            }}>
+              <Zap
+                size={20}
+                style={{ color: pathname === "/bongkar-chip" ? "#f87171" : "var(--text-muted)", transition: "color 0.2s" }}
+                strokeWidth={pathname === "/bongkar-chip" ? 2.5 : 2}
+              />
+            </div>
+            <span style={{
+              fontSize: "10px",
+              fontWeight: pathname === "/bongkar-chip" ? 700 : 500,
+              color: pathname === "/bongkar-chip" ? "#f87171" : "var(--text-muted)",
+              letterSpacing: "0.02em",
+              transition: "color 0.2s",
+            }}>
+              Bongkar
+            </span>
+          </Link>
+
           {/* Chat — center pill button */}
           <button
             id="mobile-nav-chat"
@@ -368,7 +401,7 @@ export default function MobileBottomNav() {
           >
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "center",
-              width: "52px", height: "38px", borderRadius: "999px",
+              width: "46px", height: "34px", borderRadius: "999px",
               background: showSupport
                 ? "linear-gradient(135deg, var(--amber-light), var(--gold-light))"
                 : "linear-gradient(135deg, var(--gold-light), var(--amber-light))",
@@ -378,8 +411,8 @@ export default function MobileBottomNav() {
               transition: "all 0.2s",
             }}>
               {showSupport
-                ? <X size={20} color="#0a0a14" />
-                : <MessageCircle size={20} color="#0a0a14" />}
+                ? <X size={18} color="#0a0a14" />
+                : <MessageCircle size={18} color="#0a0a14" />}
             </div>
             <span style={{
               fontSize: "10px",

@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase";
 
-export const dynamic = "force-dynamic";
+// Revalidate cached game data every 60 s — admin changes propagate within ~1 min
+export const revalidate = 60;
 
 /** Map Supabase row (snake_case) → Game object (camelCase) */
 function rowToGame(row: Record<string, unknown>) {
@@ -38,7 +39,7 @@ export async function GET() {
 
     const games = (data ?? []).map(rowToGame);
     return NextResponse.json({ games }, {
-      headers: { "Cache-Control": "no-store, max-age=0" },
+      headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
     });
   } catch (err) {
     console.error("[GET /api/games]", err);

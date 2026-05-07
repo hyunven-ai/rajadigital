@@ -514,27 +514,24 @@ Terima kasih telah memesan di *RAJA DIGITAL*! 🙏`;
                         key={product.id}
                         id={`product-${product.id}`}
                         onClick={() => setSelectedProduct(product)}
-                        className="game-grid-card"
                         style={{
                           display: "flex",
                           flexDirection: "column",
-                          alignItems: "center",
                           position: "relative",
-                          padding: product.is_popular ? "22px 12px 14px" : "14px 12px 14px",
-                          borderRadius: "18px",
+                          padding: 0,
+                          borderRadius: "14px",
                           border: isSelected
                             ? `2px solid ${game.color}`
                             : "1.5px solid var(--border)",
                           background: isSelected
-                            ? `linear-gradient(160deg, ${game.color}18 0%, ${game.color}08 100%)`
+                            ? `${game.color}18`
                             : "var(--bg-secondary)",
                           boxShadow: isSelected
                             ? `0 0 0 1px ${game.color}30, 0 8px 24px ${game.color}25`
                             : "0 1px 3px rgba(0,0,0,0.2)",
                           cursor: "pointer",
                           transition: "all 0.22s cubic-bezier(0.34,1.56,0.64,1)",
-                          gap: 0,
-                          textAlign: "center",
+                          textAlign: "left",
                           overflow: "hidden",
                         }}
                       >
@@ -551,26 +548,25 @@ Terima kasih telah memesan di *RAJA DIGITAL*! 🙏`;
                               padding: "3px 0",
                               letterSpacing: "0.04em",
                               textTransform: "uppercase",
+                              textAlign: "center",
                             }}
                           >🔥 Populer</span>
                         )}
 
-                        {/* Selected checkmark badge (top-right) */}
+                        {/* Selected checkmark (top-right) */}
                         {isSelected && (
                           <div
                             style={{
                               position: "absolute",
-                              top: "8px",
-                              right: "8px",
-                              width: "18px",
-                              height: "18px",
+                              top: "8px", right: "8px",
+                              width: "18px", height: "18px",
                               borderRadius: "50%",
                               background: game.color,
                               display: "flex",
                               alignItems: "center",
                               justifyContent: "center",
-                              flexShrink: 0,
                               boxShadow: `0 2px 8px ${game.color}60`,
+                              zIndex: 1,
                             }}
                           >
                             <svg width="10" height="8" viewBox="0 0 10 8" fill="none">
@@ -579,93 +575,79 @@ Terima kasih telah memesan di *RAJA DIGITAL*! 🙏`;
                           </div>
                         )}
 
-                        {/* Icon with colored background */}
+                        {/* ── Main content area ── */}
+                        <div style={{ padding: product.is_popular ? "24px 14px 14px" : "14px 14px 14px", flex: 1 }}>
+                          {/* Product name */}
+                          <div
+                            style={{
+                              fontWeight: 700,
+                              fontSize: "14px",
+                              color: "var(--text-primary)",
+                              marginBottom: "12px",
+                              lineHeight: 1.3,
+                              paddingRight: isSelected ? "22px" : "0",
+                            }}
+                          >
+                            {product.amount} {game.currency}
+                          </div>
+
+                          {/* Icon + Price row */}
+                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                            <div style={{ fontSize: "30px", lineHeight: 1, flexShrink: 0 }}>
+                              {game.currencyIcon}
+                            </div>
+                            <div
+                              style={{
+                                fontWeight: 800,
+                                fontSize: "14px",
+                                color: isSelected ? game.color : "var(--text-primary)",
+                                transition: "color 0.2s ease",
+                              }}
+                            >
+                              {formatCurrency(product.price)}
+                            </div>
+                          </div>
+                        </div>
+
+                        {/* ── Footer bar ── */}
                         <div
                           style={{
-                            width: "48px",
-                            height: "48px",
-                            borderRadius: "14px",
-                            background: isSelected
-                              ? `${game.color}25`
-                              : "rgba(255,255,255,0.06)",
-                            border: `1.5px solid ${isSelected ? game.color + "50" : "rgba(255,255,255,0.08)"}`,
                             display: "flex",
                             alignItems: "center",
-                            justifyContent: "center",
-                            fontSize: "22px",
-                            lineHeight: 1,
-                            marginBottom: "10px",
-                            transition: "all 0.2s ease",
-                            boxShadow: isSelected ? `0 4px 12px ${game.color}30` : "none",
+                            justifyContent: "space-between",
+                            padding: "7px 14px",
+                            background: "rgba(0,0,0,0.2)",
+                            borderTop: "1px solid rgba(255,255,255,0.06)",
                           }}
                         >
-                          {game.currencyIcon}
-                        </div>
-
-                        {/* Amount — large & bold */}
-                        <div
-                          style={{
-                            fontWeight: 800,
-                            fontSize: "16px",
-                            color: isSelected ? game.color : "var(--text-primary)",
-                            lineHeight: 1.1,
-                            letterSpacing: "-0.01em",
-                            transition: "color 0.2s ease",
-                          }}
-                        >
-                          {product.amount}
-                        </div>
-
-                        {/* Currency label */}
-                        <div
-                          style={{
-                            fontSize: "11px",
-                            color: "var(--text-muted)",
-                            marginTop: "2px",
-                            marginBottom: "10px",
-                          }}
-                        >
-                          {game.currency}
-                        </div>
-
-                        {/* Price pill */}
-                        <div
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "4px",
-                            background: isSelected ? game.color : `${game.color}18`,
-                            color: isSelected ? "#0f172a" : game.color,
-                            fontWeight: 800,
-                            fontSize: "12px",
-                            padding: "4px 12px",
-                            borderRadius: "100px",
-                            border: `1px solid ${isSelected ? game.color : game.color + "40"}`,
-                            transition: "all 0.2s ease",
-                            letterSpacing: "-0.01em",
-                          }}
-                        >
-                          {formatCurrency(product.price)}
-                        </div>
-
-                        {/* "Instan" micro badge */}
-                        <div
-                          style={{
-                            display: "inline-flex",
-                            alignItems: "center",
-                            gap: "3px",
-                            marginTop: "7px",
-                            background: "rgba(16,185,129,0.1)",
-                            color: "#10b981",
-                            fontSize: "9px",
-                            fontWeight: 700,
-                            padding: "2px 8px",
-                            borderRadius: "20px",
-                            border: "1px solid rgba(16,185,129,0.25)",
-                            letterSpacing: "0.03em",
-                          }}
-                        >
-                          ⚡ Instan
+                          <span
+                            style={{
+                              fontSize: "10px",
+                              fontWeight: 800,
+                              letterSpacing: "0.07em",
+                              color: "var(--text-muted)",
+                              textTransform: "uppercase",
+                            }}
+                          >
+                            {product.category ?? "Regular"}
+                          </span>
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              alignItems: "center",
+                              gap: "3px",
+                              fontSize: "10px",
+                              fontWeight: 800,
+                              padding: "2px 8px",
+                              borderRadius: "6px",
+                              background: "rgba(255,255,255,0.08)",
+                              color: "var(--text-secondary)",
+                              border: "1px solid rgba(255,255,255,0.12)",
+                              letterSpacing: "0.04em",
+                            }}
+                          >
+                            ⚡ FAST
+                          </span>
                         </div>
                       </button>
                     );

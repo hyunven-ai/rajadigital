@@ -1,10 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import {
   Search, RefreshCw, Trash2, CheckCircle, XCircle, Clock,
   Loader2, CalendarDays, FilterX, ChevronDown, Copy, Check,
-  Zap, MessageCircle, Save, History, Plus, X, AlertCircle,
+  Zap, MessageCircle, Save, History, Plus, X, AlertCircle, BarChart2,
 } from "lucide-react";
 
 interface BongkarRequest {
@@ -264,6 +265,13 @@ export default function AdminBongkarChipPage() {
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>Kelola dan proses semua request bongkar chip</p>
         </div>
         <div className="flex items-center gap-2">
+          <Link
+            href="/admin/bongkar-chip/analytics"
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-80"
+            style={{ background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.3)", color: "#f87171" }}
+          >
+            <BarChart2 size={14} /> Analitik
+          </Link>
           <button id="refresh-bongkar-btn" onClick={() => { setLoading(true); fetch_(); }}
             className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-80"
             style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>

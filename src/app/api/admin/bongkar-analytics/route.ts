@@ -22,15 +22,20 @@ export async function GET(req: NextRequest) {
   try {
     const { searchParams } = new URL(req.url);
     const period = searchParams.get("period") ?? "7d";
+    const game   = searchParams.get("game") ?? ""; // filter by game_name
     const { from, to } = getDateRange(period);
 
     const db = createServerSupabase();
-    const { data: rows, error } = await db
+    let query = db
       .from("bongkar_chip_requests")
-      .select("id, nominal_bongkar, bank, player_id, status, created_at, updated_at")
+      .select("id, nominal_bongkar, nominal_pembayaran, bank, player_id, game_name, status, created_at, updated_at")
       .gte("created_at", from)
       .lte("created_at", to)
       .order("created_at", { ascending: true });
+
+    if (game) query = query.eq("game_name", game);
+
+    const { data: rows, error } = await query;
 
     if (error) throw error;
     const all = rows ?? [];
@@ -38,11 +43,12 @@ export async function GET(req: NextRequest) {
     /* ── KPI ── */
     const total        = all.length;
     const totalNominal = all.reduce((s, r) => s + (r.nominal_bongkar ?? 0), 0);
-    const selesai      = all.filter(r => r.status === "selesai").length;
-    const pending      = all.filter(r => r.status === "pending").length;
-    const diproses     = all.filter(r => r.status === "diproses").length;
-    const batal        = all.filter(r => r.status === "batal").length;
+    const selesai        = all.filter(r => r.status === "selesai").length;
+    const pending        = all.filter(r => r.status === "pending").length;
+    const diproses       = all.filter(r => r.status === "diproses").length;
+    const batal          = all.filter(r => r.status === "batal").length;
     const nominalSelesai = all.filter(r => r.status === "selesai").reduce((s, r) => s + (r.nominal_bongkar ?? 0), 0);
+    const totalPembayaran = all.reduce((s, r) => s + (r.nominal_pembayaran ?? 0), 0);
 
     /* ── Tren harian ── */
     const dayMap: Record<string, { date: string; requests: number; nominal: number; selesai: number }> = {};
@@ -94,8 +100,8 @@ export async function GET(req: NextRequest) {
     const avgMinutes = Math.round(avgMs / 60000);
 
     return NextResponse.json({
-      period, from, to,
-      kpi: { total, totalNominal, selesai, pending, diproses, batal, nominalSelesai, avgMinutes },
+      period, from, to, game,
+      kpi: { total, totalNominal, selesai, pending, diproses, batal, nominalSelesai, totalPembayaran, avgMinutes },
       dailyTrend,
       topBanks,
       topPlayers,

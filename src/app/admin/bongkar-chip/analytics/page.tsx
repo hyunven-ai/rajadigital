@@ -16,7 +16,7 @@ type Period = "today" | "7d" | "30d";
 interface KPI {
   total: number; totalNominal: number; selesai: number;
   pending: number; diproses: number; batal: number;
-  nominalSelesai: number; avgMinutes: number;
+  nominalSelesai: number; totalPembayaran: number; avgMinutes: number;
 }
 interface DayTrend { date: string; requests: number; nominal: number; selesai: number; }
 interface BankStat { bank: string; count: number; nominal: number; }
@@ -88,15 +88,30 @@ const CustomTooltip = ({ active, payload, label }: any) => {
 
 export default function BongkarAnalyticsPage() {
   const [period, setPeriod]   = useState<Period>("7d");
+  const [selectedGame, setSelectedGame] = useState("");
+  const [gameList, setGameList]         = useState<string[]>([]);
   const [data, setData]       = useState<AnalyticsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError]     = useState("");
   const [activeChart, setActiveChart] = useState<"requests" | "nominal">("requests");
 
-  const fetchData = useCallback(async (p: Period) => {
+  // Fetch daftar game
+  useEffect(() => {
+    fetch("/api/games?limit=100")
+      .then(r => r.json())
+      .then(d => {
+        const names: string[] = (d.games ?? []).map((g: any) => g.name).filter(Boolean);
+        setGameList(names.sort());
+      })
+      .catch(() => {});
+  }, []);
+
+  const fetchData = useCallback(async (p: Period, game = selectedGame) => {
     setLoading(true); setError("");
     try {
-      const res  = await fetch(`/api/admin/bongkar-analytics?period=${p}`, { cache: "no-store" });
+      const params = new URLSearchParams({ period: p });
+      if (game) params.set("game", game);
+      const res  = await fetch(`/api/admin/bongkar-analytics?${params}`, { cache: "no-store" });
       const json = await res.json();
       if (json.error) throw new Error(json.error);
       setData(json);
@@ -105,9 +120,9 @@ export default function BongkarAnalyticsPage() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [selectedGame]);
 
-  useEffect(() => { fetchData(period); }, [fetchData, period]);
+  useEffect(() => { fetchData(period, selectedGame); }, [fetchData, period, selectedGame]);
 
   const kpi = data?.kpi;
 
@@ -126,12 +141,45 @@ export default function BongkarAnalyticsPage() {
             <BarChart2 size={24} style={{ color: CHART_COLORS.red }} />
             Analitik Bongkar Chip
           </h1>
-          <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "4px 0 0" }}>
+          <p style={{ fontSize: 13, color: "var(--text-muted)", margin: "4px 0 0", display: "flex", alignItems: "center", gap: 6 }}>
             Statistik mendalam request bongkar chip
+            {selectedGame && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 6, background: "rgba(167,139,250,0.15)", border: "1px solid rgba(167,139,250,0.3)", color: "#a78bfa", fontSize: 11, fontWeight: 700 }}>
+                🎮 {selectedGame}
+              </span>
+            )}
           </p>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {/* Game filter dropdown */}
+          <div style={{ position: "relative" }}>
+            <select
+              id="analytics-game-filter"
+              value={selectedGame}
+              onChange={e => setSelectedGame(e.target.value)}
+              style={{
+                padding: "8px 32px 8px 12px", borderRadius: 10, fontSize: 12, fontWeight: 600,
+                background: selectedGame ? "rgba(167,139,250,0.15)" : "var(--bg-secondary)",
+                border: selectedGame ? "1px solid rgba(167,139,250,0.5)" : "1px solid var(--border)",
+                color: selectedGame ? "#a78bfa" : "var(--text-secondary)",
+                outline: "none", cursor: "pointer", appearance: "none",
+              }}
+            >
+              <option value="">🎮 Semua Game</option>
+              {gameList.map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+            <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", fontSize: 10, color: "var(--text-muted)" }}>▼</span>
+          </div>
+          {selectedGame && (
+            <button onClick={() => setSelectedGame("")}
+              style={{ padding: "7px 10px", borderRadius: 8, border: "1px solid rgba(239,68,68,0.3)", background: "rgba(239,68,68,0.08)", color: "#ef4444", fontSize: 11, fontWeight: 700, cursor: "pointer" }}
+            >
+              ✕ Reset Game
+            </button>
+          )}
           {/* Period tabs */}
           <div style={{ display: "flex", gap: 4, padding: 4, borderRadius: 12, background: "var(--bg-secondary)", border: "1px solid var(--border)" }}>
             {(["today", "7d", "30d"] as Period[]).map(p => (
@@ -146,7 +194,7 @@ export default function BongkarAnalyticsPage() {
               </button>
             ))}
           </div>
-          <button onClick={() => fetchData(period)} disabled={loading} style={{
+          <button onClick={() => fetchData(period, selectedGame)} disabled={loading} style={{
             display: "flex", alignItems: "center", gap: 6, padding: "8px 14px",
             borderRadius: 10, background: "var(--bg-secondary)", border: "1px solid var(--border)",
             color: "var(--text-secondary)", fontSize: 12, fontWeight: 600, cursor: "pointer",
@@ -178,12 +226,13 @@ export default function BongkarAnalyticsPage() {
         <>
           {/* ── KPI Grid ── */}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill,minmax(170px,1fr))", gap: 14, marginBottom: 24 }}>
-            <KPICard label="Total Request"    value={kpi.total}          icon={TrendingUp}   color="#a78bfa" />
-            <KPICard label="Total Nominal"    value={`${kpi.totalNominal}B`}  icon={BarChart2}    color={CHART_COLORS.red} sub={`${kpi.nominalSelesai}B selesai`} />
-            <KPICard label="Selesai"          value={kpi.selesai}        icon={CheckCircle}  color={CHART_COLORS.selesai} sub={kpi.total ? `${Math.round(kpi.selesai/kpi.total*100)}% sukses` : "-"} />
-            <KPICard label="Pending"          value={kpi.pending}        icon={Clock}        color={CHART_COLORS.pending} />
-            <KPICard label="Diproses"         value={kpi.diproses}       icon={Loader2}      color={CHART_COLORS.diproses} />
-            <KPICard label="Batal"            value={kpi.batal}          icon={XCircle}      color={CHART_COLORS.batal} />
+            <KPICard label="Total Request"    value={kpi.total}                          icon={TrendingUp}   color="#a78bfa" />
+            <KPICard label="Total Nominal"    value={`${kpi.totalNominal}B`}             icon={BarChart2}    color={CHART_COLORS.red} sub={`${kpi.nominalSelesai}B selesai`} />
+            <KPICard label="Total Pembayaran" value={kpi.totalPembayaran > 0 ? `Rp ${kpi.totalPembayaran.toLocaleString("id-ID")}` : "-"} icon={CheckCircle} color="#10b981" sub="nominal transfer ke player" />
+            <KPICard label="Selesai"          value={kpi.selesai}                        icon={CheckCircle}  color={CHART_COLORS.selesai} sub={kpi.total ? `${Math.round(kpi.selesai/kpi.total*100)}% sukses` : "-"} />
+            <KPICard label="Pending"          value={kpi.pending}                        icon={Clock}        color={CHART_COLORS.pending} />
+            <KPICard label="Diproses"         value={kpi.diproses}                       icon={Loader2}      color={CHART_COLORS.diproses} />
+            <KPICard label="Batal"            value={kpi.batal}                          icon={XCircle}      color={CHART_COLORS.batal} />
             <KPICard label="Avg. Proses"      value={kpi.avgMinutes > 0 ? `${kpi.avgMinutes} mnt` : "-"} icon={Clock} color="#06b6d4" sub="pending → selesai" />
           </div>
 

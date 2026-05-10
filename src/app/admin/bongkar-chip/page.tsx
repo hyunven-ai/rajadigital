@@ -11,8 +11,10 @@ import {
 interface BongkarRequest {
   id: string;
   invoice_id: string;
+  game_name?: string;
   player_id: string;
   nominal_bongkar: number;
+  nominal_pembayaran?: number;
   bank: string;
   nomor_rekening: string;
   nama_rekening: string;
@@ -65,6 +67,7 @@ const FILTERS = [
 export default function AdminBongkarChipPage() {
   const [rows, setRows]         = useState<BongkarRequest[]>([]);
   const [filter, setFilter]     = useState("all");
+  const [gameFilter, setGameFilter] = useState("");
   const [search, setSearch]     = useState("");
   const [loading, setLoading]   = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -89,6 +92,10 @@ export default function AdminBongkarChipPage() {
   const [bulkUpdating, setBulkUpdating] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
   const [showBulkDelConfirm, setShowBulkDelConfirm] = useState(false);
+
+  // Modal pembayaran — muncul saat status diubah ke "selesai"
+  const [payModal, setPayModal] = useState<{ id: string; nominal: string } | null>(null);
+  const [paySubmitting, setPaySubmitting] = useState(false);
 
   // Date
   const todayStr = new Date().toISOString().slice(0, 10);
@@ -127,11 +134,23 @@ export default function AdminBongkarChipPage() {
   useEffect(() => { if (showLogs) fetchLogs(); }, [showLogs, fetchLogs]);
 
   /* filtered */
+  const uniqueGames = Array.from(new Set(rows.map(r => r.game_name).filter(Boolean))).sort() as string[];
+
   const filtered = rows.filter(r => {
     const q = search.toLowerCase();
-    return !q || r.invoice_id.toLowerCase().includes(q) || r.player_id.toLowerCase().includes(q)
+    const matchSearch = !q || r.invoice_id.toLowerCase().includes(q) || r.player_id.toLowerCase().includes(q)
       || r.whatsapp.includes(q) || r.nama_rekening.toLowerCase().includes(q) || r.bank.toLowerCase().includes(q);
+    const matchGame = !gameFilter || r.game_name === gameFilter;
+    return matchSearch && matchGame;
   });
+
+  /* limit / pagination */
+  const [limit, setLimit] = useState<10 | 20 | 50>(20);
+  const paginated = filtered.slice(0, limit);
+
+  /* totals untuk summary row */
+  const totalNominalBongkar = filtered.reduce((s, r) => s + (r.nominal_bongkar ?? 0), 0);
+  const totalNominalPembayaran = filtered.reduce((s, r) => s + (r.nominal_pembayaran ?? 0), 0);
 
   /* select helpers */
   const allIds        = filtered.map(r => r.id);
@@ -142,6 +161,11 @@ export default function AdminBongkarChipPage() {
 
   /* single status */
   const updateStatus = async (id: string, status: string) => {
+    // Jika status selesai, tampilkan modal input nominal pembayaran
+    if (status === "selesai") {
+      setPayModal({ id, nominal: "" });
+      return;
+    }
     setUpdating(id);
     setRows(prev => prev.map(r => r.id === id ? { ...r, status: status as BongkarRequest["status"] } : r));
     try {
@@ -149,9 +173,25 @@ export default function AdminBongkarChipPage() {
         method: "PATCH", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ status }),
       });
-      if (!res.ok) { fetch_(); } // revert on fail
+      if (!res.ok) { fetch_(); }
     } catch { fetch_(); }
     finally { setUpdating(null); }
+  };
+
+  /* konfirmasi selesai + nominal pembayaran */
+  const handleConfirmPayment = async () => {
+    if (!payModal) return;
+    setPaySubmitting(true);
+    const nominalNum = payModal.nominal ? parseInt(payModal.nominal) : undefined;
+    setRows(prev => prev.map(r => r.id === payModal.id ? { ...r, status: "selesai", nominal_pembayaran: nominalNum } : r));
+    try {
+      await fetch(`/api/bongkar-chip/${payModal.id}`, {
+        method: "PATCH", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "selesai", nominal_pembayaran: nominalNum ?? null }),
+      });
+      setPayModal(null);
+    } catch { fetch_(); setPayModal(null); }
+    finally { setPaySubmitting(false); }
   };
 
   /* bulk status */
@@ -308,6 +348,29 @@ export default function AdminBongkarChipPage() {
             <input id="bongkar-search" className="input-styled pl-9" placeholder="Cari Invoice, Player ID, WhatsApp, Nama..."
               value={search} onChange={e => setSearch(e.target.value)} />
           </div>
+          {/* Game filter dropdown */}
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <select
+              id="bongkar-game-filter"
+              value={gameFilter}
+              onChange={e => setGameFilter(e.target.value)}
+              style={{
+                height: "100%", padding: "10px 32px 10px 12px",
+                borderRadius: 12, fontSize: 12, fontWeight: 600,
+                background: gameFilter ? "rgba(167,139,250,0.12)" : "var(--bg-secondary)",
+                border: gameFilter ? "1px solid rgba(167,139,250,0.4)" : "1px solid var(--border)",
+                color: gameFilter ? "#a78bfa" : "var(--text-secondary)",
+                outline: "none", cursor: "pointer", appearance: "none",
+                minWidth: 140,
+              }}
+            >
+              <option value="">🎮 Semua Game</option>
+              {uniqueGames.map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+            <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", fontSize: 10, color: "var(--text-muted)" }}>▼</span>
+          </div>
           <div className="flex gap-2 flex-wrap">
             {FILTERS.map(btn => (
               <button key={btn.key} id={`bongkar-filter-${btn.key}`} onClick={() => setFilter(btn.key)}
@@ -386,6 +449,24 @@ export default function AdminBongkarChipPage() {
 
       {/* Table */}
       <div className="card overflow-hidden">
+        {/* Limit toggle */}
+        <div className="flex items-center justify-between px-4 pt-4 pb-2 flex-wrap gap-2">
+          <span className="text-xs font-semibold" style={{ color: "var(--text-muted)" }}>
+            Menampilkan {Math.min(limit, filtered.length)} dari {filtered.length} transaksi
+          </span>
+          <div className="flex gap-1.5">
+            {([10, 20, 50] as const).map(n => (
+              <button key={n} onClick={() => setLimit(n)}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold transition-all"
+                style={limit === n
+                  ? { background: "linear-gradient(135deg,#fbbf24,#f59e0b)", color: "#0f172a" }
+                  : { background: "var(--bg-secondary)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+        </div>
         {loading ? (
           <div className="p-8 space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
@@ -415,13 +496,13 @@ export default function AdminBongkarChipPage() {
                       onChange={toggleAll}
                       style={{ width: 15, height: 15, cursor: "pointer", accentColor: "#f87171" }} />
                   </th>
-                  <th>Invoice</th><th>Player ID</th><th>Nominal</th>
+                  <th>Invoice</th><th>Game</th><th>Player ID</th><th>Nominal</th>
                   <th>Bank</th><th>No. Rekening</th><th>Nama Rekening</th>
-                  <th>WhatsApp</th><th>Waktu</th><th>Status</th><th>Ubah Status</th><th>Aksi</th>
+                  <th>WhatsApp</th><th>Waktu</th><th>Pembayaran</th><th>Status</th><th>Ubah Status</th><th>Aksi</th>
                 </tr>
               </thead>
               <tbody>
-                {filtered.map(r => {
+                {paginated.map(r => {
                   const s = STATUS_CFG[r.status] ?? STATUS_CFG.pending;
                   const SI = s.icon;
                   const isSelected = selected.has(r.id);
@@ -439,6 +520,11 @@ export default function AdminBongkarChipPage() {
                             {copied === r.id + "-inv" ? <Check size={11} /> : <Copy size={11} />}
                           </button>
                         </div>
+                      </td>
+                      <td>
+                        <span className="text-xs font-semibold" style={{ color: r.game_name ? "#a78bfa" : "var(--text-muted)" }}>
+                          {r.game_name || "—"}
+                        </span>
                       </td>
                       <td>
                         <div className="flex items-center gap-1">
@@ -469,6 +555,26 @@ export default function AdminBongkarChipPage() {
                         <span className="text-xs" style={{ color: "var(--text-muted)" }}>
                           {new Date(r.created_at).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" })}
                         </span>
+                      </td>
+                      {/* Kolom Pembayaran */}
+                      <td>
+                        {r.status === "selesai" ? (
+                          r.nominal_pembayaran ? (
+                            <span className="text-xs font-black" style={{ color: "#10b981" }}>
+                              Rp {r.nominal_pembayaran.toLocaleString("id-ID")}
+                            </span>
+                          ) : (
+                            <button
+                              onClick={() => setPayModal({ id: r.id, nominal: "" })}
+                              className="text-xs px-2 py-1 rounded-lg font-semibold"
+                              style={{ background: "rgba(16,185,129,0.1)", color: "#10b981", border: "1px solid rgba(16,185,129,0.3)" }}
+                            >
+                              + Isi Nominal
+                            </button>
+                          )
+                        ) : (
+                          <span style={{ color: "var(--text-muted)", fontSize: 11 }}>—</span>
+                        )}
                       </td>
                       <td>
                         <span className="flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold w-fit"
@@ -504,6 +610,26 @@ export default function AdminBongkarChipPage() {
                   );
                 })}
               </tbody>
+              {/* Summary row */}
+              <tfoot>
+                <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(255,255,255,0.02)" }}>
+                  <td colSpan={4} style={{ padding: "12px 16px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                    Total ({filtered.length} transaksi)
+                  </td>
+                  <td style={{ padding: "12px 16px" }}>
+                    <span className="font-black text-sm" style={{ color: "#f87171" }}>{totalNominalBongkar}B</span>
+                  </td>
+                  <td colSpan={5} />
+                  <td style={{ padding: "12px 16px" }}>
+                    {totalNominalPembayaran > 0 ? (
+                      <span className="font-black text-sm" style={{ color: "#10b981" }}>Rp {totalNominalPembayaran.toLocaleString("id-ID")}</span>
+                    ) : (
+                      <span style={{ color: "var(--text-muted)", fontSize: 11 }}>—</span>
+                    )}
+                  </td>
+                  <td colSpan={3} />
+                </tr>
+              </tfoot>
             </table>
           </div>
         )}
@@ -769,6 +895,57 @@ export default function AdminBongkarChipPage() {
                 style={{ background: "linear-gradient(135deg,#fbbf24,#f59e0b)", color: "#0f172a" }}>
                 {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
                 {saving ? "Menyimpan..." : "Simpan Request"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── MODAL KONFIRMASI PEMBAYARAN ── */}
+      {payModal && (
+        <div style={{ position: "fixed", inset: 0, zIndex: 9999, background: "rgba(0,0,0,0.65)", backdropFilter: "blur(6px)", display: "flex", alignItems: "center", justifyContent: "center", padding: "16px" }}>
+          <div className="card p-6" style={{ maxWidth: "400px", width: "100%" }}>
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: "rgba(16,185,129,0.15)" }}>
+                <CheckCircle size={20} style={{ color: "#10b981" }} />
+              </div>
+              <div>
+                <h3 className="font-bold text-base" style={{ color: "var(--text-primary)" }}>Konfirmasi Selesai</h3>
+                <p className="text-xs" style={{ color: "var(--text-muted)" }}>Masukkan nominal yang telah dibayarkan</p>
+              </div>
+            </div>
+
+            <div className="mb-5">
+              <label className="block text-xs font-semibold mb-2" style={{ color: "var(--text-secondary)" }}>💰 Nominal Pembayaran (Rp)</label>
+              <input
+                id="pay-modal-nominal"
+                type="number"
+                placeholder="Contoh: 113000"
+                value={payModal.nominal}
+                onChange={e => setPayModal(prev => prev ? { ...prev, nominal: e.target.value } : null)}
+                className="input-styled"
+                autoFocus
+              />
+              <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>Kosongkan jika tidak ingin mencatat nominal pembayaran</p>
+            </div>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setPayModal(null)}
+                className="flex-1 py-2.5 rounded-xl text-sm font-semibold"
+                style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}
+              >
+                Batal
+              </button>
+              <button
+                id="confirm-pay-btn"
+                onClick={handleConfirmPayment}
+                disabled={paySubmitting}
+                className="flex-1 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2"
+                style={{ background: "linear-gradient(135deg,#10b981,#059669)", color: "#fff" }}
+              >
+                {paySubmitting ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+                {paySubmitting ? "Menyimpan..." : "Tandai Selesai"}
               </button>
             </div>
           </div>

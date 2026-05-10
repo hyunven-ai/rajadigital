@@ -56,7 +56,7 @@ export async function GET(req: NextRequest) {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { player_id, nominal_bongkar, bank, nomor_rekening, nama_rekening, whatsapp } = body;
+    const { player_id, nominal_bongkar, bank, nomor_rekening, nama_rekening, whatsapp, game_name } = body;
 
     // Validasi
     if (!player_id || !nominal_bongkar || !bank || !nomor_rekening || !nama_rekening || !whatsapp) {
@@ -84,6 +84,7 @@ export async function POST(req: NextRequest) {
       .from("bongkar_chip_requests")
       .insert({
         invoice_id,
+        game_name:       game_name ? String(game_name).trim() : null,
         player_id:      String(player_id).trim(),
         nominal_bongkar: nominalNum,
         bank:            String(bank).trim(),

@@ -10,7 +10,7 @@ export async function PATCH(req: NextRequest, { params }: Params) {
     if (!id) return NextResponse.json({ error: "ID tidak ditemukan" }, { status: 400 });
 
     const body = await req.json();
-    const { status, admin_notes } = body;
+    const { status, admin_notes, nominal_pembayaran } = body;
 
     const validStatuses = ["pending", "diproses", "selesai", "batal"];
     if (status && !validStatuses.includes(status)) {
@@ -19,8 +19,9 @@ export async function PATCH(req: NextRequest, { params }: Params) {
 
     const db = createServerSupabase();
     const updateData: Record<string, unknown> = {};
-    if (status !== undefined)     updateData.status      = status;
-    if (admin_notes !== undefined) updateData.admin_notes = admin_notes;
+    if (status !== undefined)              updateData.status              = status;
+    if (admin_notes !== undefined)         updateData.admin_notes         = admin_notes;
+    if (nominal_pembayaran !== undefined)  updateData.nominal_pembayaran  = nominal_pembayaran;
 
     const { data, error } = await db
       .from("bongkar_chip_requests")
@@ -48,7 +49,7 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     // Ambil data sebelum hapus (untuk log)
     const { data: row, error: fetchErr } = await db
       .from("bongkar_chip_requests")
-      .select("invoice_id, player_id, nominal_bongkar, bank, nomor_rekening, nama_rekening, whatsapp, status")
+      .select("invoice_id, player_id, game_name, nominal_bongkar, bank, nomor_rekening, nama_rekening, whatsapp, status")
       .eq("id", id)
       .single();
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Home, Send, CheckCircle, AlertCircle, Loader2, Search, Clock, XCircle, Zap } from "lucide-react";
 
@@ -41,6 +41,7 @@ export default function BongkarChipPage() {
 
   // Form state
   const [form, setForm] = useState({
+    game_name: "",
     player_id: "",
     nominal_bongkar: "",
     bank: "",
@@ -48,10 +49,21 @@ export default function BongkarChipPage() {
     nama_rekening: "",
     whatsapp: "",
   });
-  const [loading, setLoading] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
+  const [loading, setLoading]   = useState(false);
+  const [success, setSuccess]   = useState<string | null>(null);
+  const [error, setError]       = useState<string | null>(null);
 
-  const [error, setError] = useState<string | null>(null);
+  // Daftar game dari API
+  const [gameList, setGameList] = useState<string[]>([]);
+  useEffect(() => {
+    fetch("/api/games?limit=100")
+      .then(r => r.json())
+      .then(d => {
+        const names: string[] = (d.games ?? []).map((g: any) => g.name).filter(Boolean);
+        setGameList(names.sort());
+      })
+      .catch(() => {});
+  }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
@@ -64,6 +76,7 @@ export default function BongkarChipPage() {
     setSuccess(null);
 
     // Client-side validation
+    if (!form.game_name) return setError("Pilih game terlebih dahulu.");
     if (!form.player_id.trim()) return setError("Player ID wajib diisi.");
     if (!form.nominal_bongkar) return setError("Nominal bongkar wajib diisi.");
     const nom = parseInt(form.nominal_bongkar);
@@ -80,6 +93,7 @@ export default function BongkarChipPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          game_name:      form.game_name.trim() || undefined,
           player_id: form.player_id.trim(),
           nominal_bongkar: nom,
           bank: form.bank,
@@ -103,6 +117,7 @@ export default function BongkarChipPage() {
 `🎰 *REQUEST BONGKAR CHIP - RAJA DIGITAL* 🎰
 
 🧾 Invoice ID: *${invoiceId}*
+🎮 Game: *${form.game_name}*
 🆔 Player ID: *${form.player_id.trim()}*
 💰 Nominal Bongkar: *${nom}B*
 
@@ -116,12 +131,12 @@ Mohon proses request bongkar chip saya. Terima kasih! 🙏`;
 
           const waUrl = `https://wa.me/${waData.number.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`;
           // Reset form dulu sebelum redirect
-          setForm({ player_id: "", nominal_bongkar: "", bank: "", nomor_rekening: "", nama_rekening: "", whatsapp: "" });
+          setForm({ game_name: "", player_id: "", nominal_bongkar: "", bank: "", nomor_rekening: "", nama_rekening: "", whatsapp: "" });
           window.open(waUrl, "_blank", "noopener,noreferrer");
         }
       } catch {
         // Jika gagal fetch WA, tetap tampilkan success message saja
-        setForm({ player_id: "", nominal_bongkar: "", bank: "", nomor_rekening: "", nama_rekening: "", whatsapp: "" });
+        setForm({ game_name: "", player_id: "", nominal_bongkar: "", bank: "", nomor_rekening: "", nama_rekening: "", whatsapp: "" });
       }
     } catch (err: any) {
       setError(err.message);
@@ -303,6 +318,42 @@ Mohon proses request bongkar chip saya. Terima kasih! 🙏`;
             )}
 
             <form onSubmit={handleSubmit}>
+              {/* Pilih Game */}
+              <div style={{ marginBottom: "20px" }}>
+                <label style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "8px" }}>
+                  Pilih Game
+                </label>
+                <div style={{ position: "relative" }}>
+                  <select
+                    id="bongkar-game-name"
+                    name="game_name"
+                    value={form.game_name}
+                    onChange={handleChange}
+                    style={{
+                      width: "100%", padding: "12px 16px",
+                      borderRadius: "12px",
+                      background: "var(--bg-secondary)",
+                      border: "1px solid var(--border)",
+                      color: form.game_name ? "var(--text-primary)" : "var(--text-muted)",
+                      fontSize: "14px",
+                      outline: "none",
+                      appearance: "none",
+                      boxSizing: "border-box",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <option value="" disabled>— Pilih Game —</option>
+                    {gameList.map(g => (
+                      <option key={g} value={g}>{g}</option>
+                    ))}
+                  </select>
+                  <div style={{
+                    position: "absolute", right: "14px", top: "50%", transform: "translateY(-50%)",
+                    pointerEvents: "none", color: "var(--text-muted)",
+                  }}>▼</div>
+                </div>
+              </div>
+
               {/* Player ID */}
               <div style={{ marginBottom: "20px" }}>
                 <label style={{ display: "block", fontSize: "13px", fontWeight: 700, color: "var(--text-primary)", marginBottom: "8px" }}>

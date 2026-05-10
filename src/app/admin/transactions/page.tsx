@@ -75,6 +75,7 @@ const FILTER_BUTTONS = [
 export default function AdminTransactionsPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [filter,  setFilter]  = useState<"all"|"pending"|"selesai"|"batal">("all");
+  const [gameFilter, setGameFilter] = useState("");
   const [search,  setSearch]  = useState("");
   const [limit,   setLimit]   = useState(50);
   const [loading,       setLoading]       = useState(true);
@@ -425,14 +426,21 @@ export default function AdminTransactionsPage() {
     return { username: "", notes: raw };
   };
 
+  const uniqueGames = Array.from(new Set(transactions.map(t => t.game_name).filter(Boolean))).sort();
+
   const filtered = transactions.filter(t => {
     const q = search.toLowerCase();
     const { username, notes } = parseNotes(t.notes);
-    return !q || t.invoice_id.toLowerCase().includes(q) || t.game_id.includes(q)
+    const matchSearch = !q || t.invoice_id.toLowerCase().includes(q) || t.game_id.includes(q)
       || username.toLowerCase().includes(q)
       || t.whatsapp.includes(q)
       || notes.toLowerCase().includes(q);
+    const matchGame = !gameFilter || t.game_name === gameFilter;
+    return matchSearch && matchGame;
   });
+
+  const totalHarga = filtered.reduce((s, t) => s + (t.product_price ?? 0), 0);
+  const totalSelesaiHarga = filtered.filter(t => t.status === "selesai").reduce((s, t) => s + (t.product_price ?? 0), 0);
 
   const activeGames = GAMES.filter(g => g.isActive);
 
@@ -502,13 +510,36 @@ export default function AdminTransactionsPage() {
 
       {/* ── Filter & Search ── */}
       <div className="card p-4 mb-4 flex flex-col gap-3">
-        {/* Row 1: Search + Status */}
+        {/* Row 1: Search + Game Filter + Status */}
         <div className="flex flex-col sm:flex-row gap-3">
           <div className="relative flex-1">
             <Search size={16} className="absolute left-3 top-1/2 -translate-y-1/2" style={{ color: "var(--text-muted)" }} />
             <input id="tx-search" className="input-styled pl-9"
               placeholder="Cari Invoice ID, Game ID, atau WhatsApp..."
               value={search} onChange={e => setSearch(e.target.value)} />
+          </div>
+          {/* Game filter dropdown */}
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <select
+              id="tx-game-filter"
+              value={gameFilter}
+              onChange={e => setGameFilter(e.target.value)}
+              style={{
+                height: "100%", padding: "10px 32px 10px 12px",
+                borderRadius: 12, fontSize: 12, fontWeight: 600,
+                background: gameFilter ? "rgba(167,139,250,0.12)" : "var(--bg-secondary)",
+                border: gameFilter ? "1px solid rgba(167,139,250,0.4)" : "1px solid var(--border)",
+                color: gameFilter ? "#a78bfa" : "var(--text-secondary)",
+                outline: "none", cursor: "pointer", appearance: "none",
+                minWidth: 150,
+              }}
+            >
+              <option value="">🎮 Semua Game</option>
+              {uniqueGames.map(g => (
+                <option key={g} value={g}>{g}</option>
+              ))}
+            </select>
+            <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", fontSize: 10, color: "var(--text-muted)" }}>▼</span>
           </div>
           <div className="flex gap-2 flex-wrap">
             {FILTER_BUTTONS.map(btn => (
@@ -841,12 +872,41 @@ export default function AdminTransactionsPage() {
                   </tr>
                 )}
               </tbody>
+              {/* ── Summary tfoot ── */}
+              {filtered.length > 0 && (
+                <tfoot>
+                  <tr style={{ borderTop: "2px solid var(--border)", background: "rgba(255,255,255,0.015)" }}>
+                    <td colSpan={5} style={{ padding: "12px 16px", fontSize: 11, fontWeight: 700, color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.05em" }}>
+                      Total ({filtered.length} transaksi{gameFilter ? ` — ${gameFilter}` : ""})
+                    </td>
+                    <td style={{ padding: "12px 16px" }}>
+                      <div className="flex flex-col gap-0.5">
+                        <span className="font-black text-sm" style={{ color: "#fbbf24" }}>
+                          {formatCurrency(totalHarga)}
+                        </span>
+                        {totalSelesaiHarga !== totalHarga && (
+                          <span className="text-xs" style={{ color: "#10b981" }}>
+                            Selesai: {formatCurrency(totalSelesaiHarga)}
+                          </span>
+                        )}
+                      </div>
+                    </td>
+                    <td colSpan={5} />
+                  </tr>
+                </tfoot>
+              )}
             </table>
           </div>
         )}
         {!loading && filtered.length > 0 && (
-          <div className="px-6 py-3 text-xs" style={{ borderTop: "1px solid var(--border)", color: "var(--text-muted)" }}>
+          <div className="px-6 py-3 text-xs flex items-center gap-3 flex-wrap" style={{ borderTop: "1px solid var(--border)", color: "var(--text-muted)" }}>
             Menampilkan <strong>{filtered.length}</strong> transaksi
+            {gameFilter && (
+              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 6, background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.3)", color: "#a78bfa", fontSize: 11, fontWeight: 700 }}>
+                🎮 {gameFilter}
+                <button onClick={() => setGameFilter("")} style={{ marginLeft: 2, cursor: "pointer", color: "#a78bfa", opacity: 0.7 }}>×</button>
+              </span>
+            )}
           </div>
         )}
       </div>

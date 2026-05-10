@@ -1,5 +1,3 @@
-"use client";
-
 import Link  from "next/link";
 import Image from "next/image";
 import type { Game } from "@/lib/games";
@@ -7,6 +5,7 @@ import type { Game } from "@/lib/games";
 interface Props {
   games: Game[];
 }
+
 
 export default function GamesGrid({ games }: Props) {
   if (games.length === 0) {
@@ -25,8 +24,13 @@ export default function GamesGrid({ games }: Props) {
           key={game.slug}
           href={`/games/${game.slug}`}
           id={`game-card-${game.slug}`}
-          className="group relative rounded-2xl overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:shadow-2xl"
-          style={{ border: "1px solid var(--border)" }}
+          className="group relative rounded-2xl overflow-hidden transition-transform duration-300 hover:-translate-y-1 hover:shadow-2xl"
+          style={{
+            border: "1px solid var(--border)",
+            willChange: "transform",
+            contain: "layout",
+            transform: "translateZ(0)", /* GPU layer — isolasi dari layout halaman */
+          }}
         >
           {/* Cover image — aspect-square via padding trick agar tidak ada reflow */}
           <div className="relative w-full" style={{ paddingBottom: "100%" }}>

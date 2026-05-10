@@ -70,6 +70,8 @@ export default function Footer() {
                 { href: "/", label: "Beranda" },
                 { href: "/pricelist", label: "Pricelist" },
                 { href: "/cek-transaksi", label: "Cek Transaksi" },
+                { href: "/artikel", label: "Artikel" },
+                { href: "/tentang-kami", label: "Tentang Kami" },
               ].map((link) => (
                 <li key={link.href}>
                   <Link

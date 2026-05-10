@@ -30,10 +30,17 @@ export default function RunningText() {
       .catch(() => {});
   }, []);
 
-  if (!config || !config.enabled) return null;
+  // Selama loading atau disabled: tampilkan placeholder dengan tinggi SAMA
+  // agar konten di bawah tidak bergeser saat ticker muncul (CLS prevention)
+  if (!config || !config.enabled) {
+    return <div style={{ height: "41px", width: "100%" }} aria-hidden />;
+  }
 
   const activeItems = config.items.filter((i) => i.active);
-  if (activeItems.length === 0) return null;
+  // Jika tidak ada item aktif, tetap reserve space
+  if (activeItems.length === 0) {
+    return <div style={{ height: "41px", width: "100%" }} aria-hidden />;
+  }
 
   // Duplicate items for seamless infinite loop
   const allItems = [...activeItems, ...activeItems, ...activeItems];

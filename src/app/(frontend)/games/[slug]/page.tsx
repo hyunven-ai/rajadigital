@@ -52,9 +52,17 @@ export default function GamePage() {
       // Sort by price ascending (cheapest first)
       const list: Product[] = (data.products ?? []).sort((a: Product, b: Product) => (a.price ?? 0) - (b.price ?? 0));
       setProducts(list);
-      // Auto-set kategori aktif ke kategori pertama yang tersedia
+      // Auto-set kategori aktif ke kategori PERTAMA dari konfigurasi game (bukan dari produk)
       if (list.length > 0) {
-        const firstCat = list.find(p => p.is_active)?.category ?? list[0].category;
+        // Urutan kategori mengikuti konfigurasi game dari admin panel
+        const gameCats = [
+          game.currency?.toLowerCase(),
+          ...(game.extraCurrencies ?? []).map((c: any) => c.key),
+        ].filter(Boolean);
+        const activeCats = new Set(list.filter(p => p.is_active).map(p => p.category?.toLowerCase()));
+        const firstCat = gameCats.find(k => activeCats.has(k))
+          ?? list.find(p => p.is_active)?.category
+          ?? list[0].category;
         setActiveCategory(prev => prev || firstCat);
       }
     } catch {
@@ -80,14 +88,33 @@ export default function GamePage() {
     (p) => p.category?.toLowerCase() === activeCategory?.toLowerCase() && p.is_active
   );
 
-  /* ── Kategori tabs berdasarkan produk yang ada ── */
-  const availableCategories = Array.from(
-    new Set(products.filter((p) => p.is_active).map((p) => p.category).filter(Boolean))
-  ).sort((a, b) => {
-    if (a.toLowerCase() === "spesial") return 1;
-    if (b.toLowerCase() === "spesial") return -1;
-    return 0;
-  }) as string[];
+  /* ── Kategori tabs — urutan mengikuti konfigurasi game dari admin panel ── */
+  const availableCategories = (() => {
+    // Urutan dari admin: currency utama + extraCurrencies
+    const gameCatOrder: string[] = [
+      game.currency?.toLowerCase(),
+      ...(game.extraCurrencies ?? []).map((c: any) => c.key),
+    ].filter(Boolean) as string[];
+
+    // Set kategori yang benar-benar ada di produk aktif
+    const activeCatSet = new Set(
+      products.filter((p) => p.is_active).map((p) => p.category?.toLowerCase()).filter(Boolean)
+    );
+
+    // Tampilkan kategori sesuai urutan game, hanya yang ada produknya
+    const ordered = gameCatOrder.filter((k) => activeCatSet.has(k));
+
+    // Tambahkan kategori dari produk yang tidak terdaftar di game config (fallback)
+    activeCatSet.forEach((cat) => {
+      if (cat && !ordered.includes(cat)) ordered.push(cat);
+    });
+
+    // Kembalikan dengan original casing dari produk (bukan lowercase)
+    return ordered.map((k) => {
+      const prod = products.find((p) => p.is_active && p.category?.toLowerCase() === k);
+      return prod?.category ?? k;
+    });
+  })();
 
   /* ── Step 2 → 3 handler ── */
   const handleGoToForm = () => {
@@ -360,11 +387,13 @@ Terima kasih telah memesan di *RAJA DIGITAL*! 🙏`;
                     icon = game.currencyIcon || "💎";
                     label = game.currency;
                   } else {
+                    // Cari di extraCurrencies game (dari admin panel)
                     const extra = game.extraCurrencies?.find((c: any) => c.key === catLower || c.label.toLowerCase() === catLower);
                     if (extra) {
                       icon = extra.icon;
                       label = extra.label;
                     } else {
+                      // Fallback untuk kategori standar
                       const CAT_MAP: Record<string, { icon: string; label: string }> = {
                         diamond:  { icon: "💎", label: "Diamond" },
                         uc:       { icon: "🪙", label: "UC" },
@@ -373,10 +402,17 @@ Terima kasih telah memesan di *RAJA DIGITAL*! 🙏`;
                         gold:     { icon: "🥇", label: "Gold" },
                         voucher:  { icon: "🎫", label: "Voucher" },
                         spesial:  { icon: "⭐", label: "Paket Spesial" },
+                        b:        { icon: "🎰", label: "B" },
+                        m:        { icon: "🎰", label: "M" },
+                        "100m":   { icon: "💰", label: "100M" },
                       };
                       if (CAT_MAP[catLower]) {
                         icon = CAT_MAP[catLower].icon;
                         label = CAT_MAP[catLower].label;
+                      } else {
+                        // Untuk kategori custom yang tidak dikenal, gunakan nama aslinya
+                        label = cat;
+                        icon = "📦";
                       }
                     }
                   }
@@ -588,7 +624,7 @@ Terima kasih telah memesan di *RAJA DIGITAL*! 🙏`;
                               paddingRight: isSelected ? "22px" : "0",
                             }}
                           >
-                            {product.amount} {game.currency}
+                            {product.name}
                           </div>
 
                           {/* Icon + Price row */}
@@ -690,13 +726,13 @@ Terima kasih telah memesan di *RAJA DIGITAL*! 🙏`;
                       {/* Name + sub */}
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ fontWeight: 700, fontSize: "14px", color: "var(--text-primary)", lineHeight: 1.2 }}>
-                          {product.amount} {game.currency}
-                        </div>
-                        <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
                           {product.name}
                           {product.is_popular && (
                             <span style={{ marginLeft: "6px", color: "#ef4444", fontWeight: 700 }}>🔥</span>
                           )}
+                        </div>
+                        <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "2px" }}>
+                          {product.amount} {product.category?.toUpperCase()}
                         </div>
                       </div>
                       {/* Price + checkmark */}

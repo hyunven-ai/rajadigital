@@ -38,9 +38,10 @@ function formatDate(iso: string) {
     + " " + d.toLocaleTimeString("id-ID", { hour: "2-digit", minute: "2-digit" });
 }
 
-const EMPTY: Product = {
-  id: "", name: "", category: "chip", price: 0,
-  amount: "", game_name: "Royal Dream", is_active: true,
+// EMPTY tidak lagi hardcode category/game_name — akan diisi dinamis di openAdd()
+const EMPTY: Omit<Product, "game_name" | "category"> & { game_name: string; category: string } = {
+  id: "", name: "", category: "", price: 0,
+  amount: "", game_name: "", is_active: true,
   is_popular: false, sort_order: 0, created_at: "",
 };
 
@@ -193,14 +194,35 @@ export default function AdminProductsPage() {
     });
   };
 
+  /* ── Helpers untuk default kategori ─────────────────────────────── */
+  /** Kembalikan kategori pertama yang tersedia untuk game tertentu */
+  const getDefaultCategory = (gameName: string): string => {
+    const g = games.find((x) => x.name === gameName);
+    if (!g) return "";
+    // Gunakan currency utama sebagai default pertama
+    return g.currency?.toLowerCase() ?? "";
+  };
+
   /* ── CRUD ──────────────────────── */
-  const openAdd  = () => { 
-    setEditing(null); 
-    setForm(EMPTY); 
+  const openAdd = () => {
+    setEditing(null);
     setIsSpecial(false);
     setSpecialConfig({ min: 10, max: 100, step: 1, unit: "B" });
-    setShowForm(true); 
+
+    // Tentukan game default: pakai filter aktif jika ada, kalau tidak pakai game pertama
+    const defaultGameName = filterGame !== "all"
+      ? filterGame
+      : (games[0]?.name ?? "");
+    const defaultCategory = getDefaultCategory(defaultGameName);
+
+    setForm({
+      ...EMPTY,
+      game_name: defaultGameName,
+      category:  defaultCategory,
+    } as Product);
+    setShowForm(true);
   };
+
   const openEdit = (p: Product) => { 
     setEditing(p); 
     setForm(p); 
@@ -252,10 +274,10 @@ export default function AdminProductsPage() {
 
   const handleGameChange = (name: string) => {
     const g = games.find((x) => x.name === name);
-    // Only auto-set category when adding a NEW product (not editing existing)
-    // For editing, preserve the existing category choice unless explicitly changed via dropdown
-    const primaryCat = g?.currency?.toLowerCase() ?? "chip";
+    // Ketika menambah produk baru: set kategori ke primary currency game yang dipilih
+    // Ketika edit: jangan ubah kategori yang sudah ada
     if (!editing) {
+      const primaryCat = g?.currency?.toLowerCase() ?? "";
       setForm((f) => ({ ...f, game_name: name, category: primaryCat }));
     } else {
       setForm((f) => ({ ...f, game_name: name }));

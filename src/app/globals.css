@@ -908,3 +908,75 @@ body>div[style*="bottom"][style*="right"][style*="position: fixed"]:not(#mobile-
   visibility: hidden !important;
   pointer-events: none !important;
 }
+
+/* =============================================
+   BANNER CAROUSEL — CLS-safe styles
+   Harus di globals.css (bukan styled-jsx) agar
+   CSS aktif SEBELUM JS hydration sehingga tidak
+   ada layout shift dari height: 0 → aspect-ratio.
+   ============================================= */
+
+.banner-aspect-container {
+  width: 100%;
+  /* Rasio 16:7 = persis 1280×560px (ukuran ideal admin panel) */
+  aspect-ratio: 16 / 7;
+  position: relative;
+  overflow: hidden;
+}
+
+@keyframes banner-progress {
+  from { width: 0%; }
+  to   { width: 100%; }
+}
+
+/* Skeleton placeholder — animasi shimmer */
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-secondary) 0%,
+    var(--border) 50%,
+    var(--bg-secondary) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.5s ease-in-out infinite;
+}
+
+@keyframes skeleton-shimmer {
+  0%   { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* =============================================
+   REVIEW CAROUSEL — Marquee animations
+   Di globals.css agar tersedia tanpa JS hydration
+   ============================================= */
+
+@keyframes marquee-left {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-25%); }
+}
+
+@keyframes marquee-right {
+  0%   { transform: translateX(-25%); }
+  100% { transform: translateX(0); }
+}
+
+/* =============================================
+   FEATURE CARD — Keunggulan Kami section
+   ============================================= */
+
+.feature-card {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 16px;
+  padding: 36px 28px;
+  text-align: center;
+  backdrop-filter: blur(10px);
+  transition: border-color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+}
+
+.feature-card:hover {
+  border-color: rgba(37, 99, 235, 0.45);
+  transform: translateY(-5px);
+  box-shadow: 0 12px 32px rgba(37, 99, 235, 0.15);
+}

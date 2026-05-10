@@ -16,6 +16,7 @@ interface Banner {
   link_url: string;
   link_label: string;
   badge_text: string;
+  show_title: boolean;
   is_active: boolean;
   sort_order: number;
   created_at: string;
@@ -28,6 +29,7 @@ const EMPTY: Omit<Banner, "id" | "created_at"> = {
   link_url: "",
   link_label: "Top Up Sekarang",
   badge_text: "🔥 Promo Hari Ini",
+  show_title: true,
   is_active: true,
   sort_order: 0,
 };
@@ -49,15 +51,17 @@ function formatDate(iso: string) {
 }
 
 export default function AdminBannersPage() {
-  const [banners,       setBanners]       = useState<Banner[]>([]);
-  const [loading,       setLoading]       = useState(true);
-  const [saving,        setSaving]        = useState(false);
-  const [showForm,      setShowForm]      = useState(false);
-  const [editing,       setEditing]       = useState<Banner | null>(null);
-  const [form,          setForm]          = useState<Omit<Banner, "id" | "created_at">>(EMPTY);
-  const [confirmTarget, setConfirmTarget] = useState<Banner | null>(null);
-  const [deleting,      setDeleting]      = useState(false);
-  const [previewTab,    setPreviewTab]    = useState<"desktop" | "mobile">("desktop");
+  const [banners,          setBanners]          = useState<Banner[]>([]);
+  const [loading,          setLoading]          = useState(true);
+  const [saving,           setSaving]           = useState(false);
+  const [showForm,         setShowForm]         = useState(false);
+  const [editing,          setEditing]          = useState<Banner | null>(null);
+  const [form,             setForm]             = useState<Omit<Banner, "id" | "created_at">>(EMPTY);
+  const [confirmTarget,    setConfirmTarget]    = useState<Banner | null>(null);
+  const [deleting,         setDeleting]         = useState(false);
+  const [previewTab,       setPreviewTab]       = useState<"desktop" | "mobile">("desktop");
+  // true jika kolom show_title sudah ada di database
+  const [dbHasShowTitle,   setDbHasShowTitle]   = useState<boolean | null>(null);
 
   /* ── Fetch ── */
   const fetchBanners = useCallback(async () => {
@@ -65,7 +69,17 @@ export default function AdminBannersPage() {
     try {
       const res = await fetch("/api/admin/banners");
       const d   = await res.json();
-      if (d.banners) setBanners(d.banners);
+      if (d.banners) {
+        setBanners(d.banners);
+        // Deteksi apakah kolom show_title sudah ada di DB
+        // Jika ada banner, cek apakah field show_title terdefinisi (bukan undefined)
+        if (d.banners.length > 0) {
+          setDbHasShowTitle("show_title" in d.banners[0]);
+        } else {
+          // Tidak ada banner, coba fetch satu row untuk cek kolom
+          setDbHasShowTitle(null); // unknown
+        }
+      }
     } catch { /* silent */ }
     finally { setLoading(false); }
   }, []);
@@ -74,21 +88,28 @@ export default function AdminBannersPage() {
 
   /* ── Save ── */
   const handleSave = async () => {
-    if (!form.title || !form.image_url) { alert("Judul dan URL Gambar wajib diisi"); return; }
+    if (!form.image_url) { alert("URL Gambar wajib diisi"); return; }
+    // Judul hanya wajib jika show_title aktif
+    if (form.show_title && !form.title) { alert("Judul Banner wajib diisi jika 'Tampilkan Judul' diaktifkan"); return; }
     setSaving(true);
     try {
+      // Jika show_title=false & title kosong, simpan placeholder agar kolom NOT NULL tidak error
+      const payload = {
+        ...form,
+        title: form.title.trim() || (form.show_title ? "" : "banner"),
+      };
       if (editing) {
         const res = await fetch(`/api/admin/banners/${editing.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error();
       } else {
         const res = await fetch("/api/admin/banners", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(form),
+          body: JSON.stringify(payload),
         });
         if (!res.ok) throw new Error();
       }
@@ -126,14 +147,40 @@ export default function AdminBannersPage() {
     setForm({
       title: b.title, subtitle: b.subtitle ?? "", image_url: b.image_url,
       link_url: b.link_url ?? "", link_label: b.link_label ?? "",
-      badge_text: b.badge_text ?? "", is_active: b.is_active, sort_order: b.sort_order,
+      badge_text: b.badge_text ?? "",
+      // Gunakan nilai dari DB jika kolom ada, default true hanya jika kolom belum ada
+      show_title: dbHasShowTitle ? (b.show_title ?? true) : true,
+      is_active: b.is_active, sort_order: b.sort_order,
     });
     setShowForm(true);
   };
 
   return (
     <div>
-      {/* ── Header ── */}
+      {/* ── Migration Warning: show_title kolom belum ada ── */}
+      {dbHasShowTitle === false && (
+        <div className="mb-5 rounded-xl p-4 flex items-start gap-3"
+          style={{ background: "rgba(239,68,68,0.08)", border: "1px solid rgba(239,68,68,0.35)" }}>
+          <AlertTriangle size={18} style={{ color: "#ef4444", flexShrink: 0, marginTop: 2 }} />
+          <div>
+            <div className="font-bold text-sm mb-1" style={{ color: "#ef4444" }}>
+              ⚠️ Fitur "Sembunyikan Judul" memerlukan update database
+            </div>
+            <p className="text-xs mb-2" style={{ color: "#fca5a5" }}>
+              Kolom <code className="px-1 py-0.5 rounded" style={{ background: "rgba(239,68,68,0.15)" }}>show_title</code> belum ada di tabel <code className="px-1 py-0.5 rounded" style={{ background: "rgba(239,68,68,0.15)" }}>banners</code>.
+              Toggle judul tidak akan tersimpan sampai SQL berikut dijalankan.
+            </p>
+            <div className="rounded-lg p-3 font-mono text-xs select-all cursor-text"
+              style={{ background: "rgba(0,0,0,0.4)", color: "#86efac", border: "1px solid rgba(134,239,172,0.2)" }}>
+              ALTER TABLE banners ADD COLUMN IF NOT EXISTS show_title BOOLEAN NOT NULL DEFAULT TRUE;
+            </div>
+            <p className="text-xs mt-2" style={{ color: "#fca5a5" }}>
+              Jalankan SQL di atas di <strong>Supabase Dashboard → SQL Editor</strong>, lalu klik Refresh.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-black" style={{ fontFamily: "var(--font-outfit)", color: "var(--text-primary)" }}>
@@ -386,22 +433,38 @@ export default function AdminBannersPage() {
                       height: previewTab === "desktop" ? 180 : 120,
                       transition: "height 0.3s ease",
                     }}>
-                    <Image src={form.image_url} alt="preview" fill className="object-cover" sizes="600px"
-                      onError={() => {}} />
-                    <div className="absolute inset-0"
-                      style={{ background: "linear-gradient(90deg, rgba(10,5,30,0.85) 0%, rgba(10,5,30,0.4) 60%, transparent 100%)" }} />
+                    {/* Blurred background — hanya tampil jika show_title = true */}
+                    {form.show_title && (
+                      <Image src={form.image_url} alt="" fill className="object-cover"
+                        style={{ filter: "blur(20px) brightness(0.4)", transform: "scale(1.1)" }}
+                        sizes="600px" aria-hidden onError={() => {}} />
+                    )}
+                    <Image src={form.image_url} alt="preview" fill
+                      className={form.show_title ? "object-contain" : "object-cover"}
+                      sizes="600px" onError={() => {}} />
+                    {form.show_title && (
+                      <div className="absolute inset-0"
+                        style={{ background: "linear-gradient(90deg, rgba(10,5,30,0.85) 0%, rgba(10,5,30,0.4) 60%, transparent 100%)" }} />
+                    )}
                     <div className="absolute inset-0 flex flex-col justify-center p-4">
-                      {form.badge_text && (
+                      {form.badge_text && form.show_title && (
                         <span className="text-xs font-bold px-2 py-0.5 rounded-full mb-2 w-fit"
                           style={{ background: "rgba(251,191,36,0.85)", color: "#0f172a" }}>
                           {form.badge_text}
                         </span>
                       )}
-                      <div className="font-black text-white" style={{ fontSize: previewTab === "desktop" ? 18 : 13 }}>
-                        {form.title || "Judul Banner"}
-                      </div>
-                      {form.subtitle && (
+                      {form.show_title && (
+                        <div className="font-black text-white" style={{ fontSize: previewTab === "desktop" ? 18 : 13 }}>
+                          {form.title || "Judul Banner"}
+                        </div>
+                      )}
+                      {form.show_title && form.subtitle && (
                         <div className="text-xs mt-1" style={{ color: "#cbd5e1", maxWidth: "60%" }}>{form.subtitle}</div>
+                      )}
+                      {!form.show_title && (
+                        <div className="text-xs text-center w-full" style={{ color: "rgba(255,255,255,0.4)" }}>
+                          Judul disembunyikan — banner tampil full tanpa overlay
+                        </div>
                       )}
                     </div>
                   </div>
@@ -458,14 +521,38 @@ export default function AdminBannersPage() {
                 </p>
               </div>
 
-              {/* Title */}
+              {/* Title + show_title toggle */}
               <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>
-                  Judul Banner *
-                </label>
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-semibold" style={{ color: "var(--text-secondary)" }}>
+                    Judul Banner {form.show_title ? "*" : "(opsional — judul disembunyikan)"}
+                  </label>
+                  {/* Toggle Tampilkan Judul */}
+                  <button
+                    type="button"
+                    id="toggle-show-title"
+                    onClick={() => setForm({ ...form, show_title: !form.show_title })}
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1 rounded-lg transition-all"
+                    style={form.show_title
+                      ? { background: "rgba(16,185,129,0.15)", color: "#10b981", border: "1px solid rgba(16,185,129,0.4)" }
+                      : { background: "rgba(100,116,139,0.15)", color: "#94a3b8", border: "1px solid rgba(100,116,139,0.3)" }}
+                  >
+                    {form.show_title ? <><Eye size={12} /> Judul Tampil</> : <><EyeOff size={12} /> Judul Disembunyikan</>}
+                  </button>
+                </div>
                 <input id="banner-title" className="input-styled" placeholder="Top-Up Game Favoritmu"
                   value={form.title}
-                  onChange={(e) => setForm({ ...form, title: e.target.value })} />
+                  onChange={(e) => setForm({ ...form, title: e.target.value })}
+                  disabled={!form.show_title}
+                  style={!form.show_title ? { opacity: 0.4, pointerEvents: "none" } : {}}
+                />
+                {!form.show_title && (
+                  <p className="mt-1.5 text-xs flex items-center gap-1.5 px-3 py-2 rounded-lg"
+                    style={{ background: "rgba(251,191,36,0.08)", border: "1px solid rgba(251,191,36,0.2)", color: "#fbbf24" }}>
+                    <EyeOff size={12} />
+                    Judul disembunyikan — blur background akan dihapus sehingga gambar tampil full.
+                  </p>
+                )}
               </div>
 
               {/* Subtitle */}

@@ -13,6 +13,7 @@ interface Banner {
   link_url?: string;
   link_label?: string;
   badge_text?: string;
+  show_title?: boolean;  // default true — false = full image tanpa overlay
   is_active: boolean;
   sort_order: number;
 }
@@ -31,17 +32,24 @@ const FALLBACK_BANNERS: Banner[] = [
   },
 ];
 
-export default function BannerCarousel() {
-  const [banners,      setBanners]      = useState<Banner[]>([]);
+interface Props {
+  initialBanners?: Banner[];
+}
+
+export default function BannerCarousel({ initialBanners }: Props) {
+  const [banners,      setBanners]      = useState<Banner[]>(initialBanners ?? []);
   const [current,     setCurrent]      = useState(0);
   const [isAnimating, setIsAnimating]  = useState(false);
   const [direction,   setDirection]    = useState<"left" | "right">("right");
   const [isPaused,    setIsPaused]     = useState(false);
-  const [loaded,      setLoaded]       = useState(false);
+  // loaded = true jika SSR data sudah ada ATAU client fetch selesai
+  const [loaded,      setLoaded]       = useState((initialBanners?.length ?? 0) > 0);
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  /* ── Fetch ─────────────────────────────────── */
+  /* ── Fetch (client fallback jika SSR tidak tersedia) ─────────────────── */
   useEffect(() => {
+    // Jika sudah ada SSR data, tidak perlu fetch lagi
+    if (initialBanners && initialBanners.length > 0) return;
     fetch("/api/banners")
       .then((r) => r.json())
       .then((d) => {
@@ -49,7 +57,7 @@ export default function BannerCarousel() {
         setLoaded(true);
       })
       .catch(() => { setBanners(FALLBACK_BANNERS); setLoaded(true); });
-  }, []);
+  }, []); // eslint-disable-line
 
   /* ── Auto-play ─────────────────────────────── */
   const startTimer = useCallback(() => {
@@ -82,12 +90,21 @@ export default function BannerCarousel() {
   const goNext = () => go("right");
   const goPrev = () => go("left");
 
-  /* ── Skeleton ─────────────────────────────────
-     Gunakan padding-bottom trick agar aspect-ratio
-     tetap terjaga saat loading                    */
+  /* ── Skeleton: gunakan SAMA aspect-ratio dengan container ──
+     Sehingga browser tidak perlu reflow saat banner muncul  */
   if (!loaded || banners.length === 0) {
     return (
-      <div className="w-full skeleton" style={{ height: "clamp(280px, 50vw, 560px)" }} />
+      <div
+        className="w-full skeleton"
+        style={{
+          /*
+           * Harus IDENTIK dengan .banner-aspect-container CSS.
+           * Gunakan aspect-ratio 16/7 agar tidak ada height diff.
+           */
+          aspectRatio: "16 / 7",
+          width: "100%",
+        }}
+      />
     );
   }
 
@@ -122,126 +139,151 @@ export default function BannerCarousel() {
             transition: "transform 0.35s cubic-bezier(0.4,0,0.2,1), opacity 0.35s ease",
           }}
         >
-          {/* Background blur — salin gambar sebagai bg supaya tidak hitam polos */}
+          {/*
+           * Layer 1: Blur background — SELALU tampil untuk mengisi area kosong
+           *   (letter-box dari object-contain). Tidak pernah dimatikan.
+           */}
           <Image
             src={banner.image_url}
             alt=""
             fill
             className="object-cover object-center"
-            style={{ filter: "blur(24px) brightness(0.45) saturate(1.4)", transform: "scale(1.1)" }}
+            style={{ filter: "blur(28px) brightness(0.35) saturate(1.2)", transform: "scale(1.15)" }}
             sizes="100vw"
             aria-hidden
           />
-          {/* Foreground image fullsize — object-contain agar tidak terpotong */}
+
+          {/*
+           * Layer 2: Foreground image — object-cover agar mengisi penuh container.
+           *   object-position center memastikan subjek utama di tengah tetap terlihat.
+           *   Blur background sudah mengisi gap jika ada.
+           */}
           <Image
             src={banner.image_url}
             alt={banner.title}
             fill
-            className="object-contain object-center"
+            className="object-cover"
+            style={{ objectPosition: "center center" }}
             sizes="100vw"
             priority
           />
 
-          {/* Gradient kiri-kanan untuk keterbacaan teks */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(90deg, rgba(5,3,20,0.90) 0%, rgba(5,3,20,0.65) 40%, rgba(5,3,20,0.2) 70%, transparent 100%)",
-            }}
-          />
-          {/* Gradient bawah untuk mobile (teks di bawah) */}
-          <div
-            className="absolute inset-0"
-            style={{
-              background:
-                "linear-gradient(to top, rgba(5,3,20,0.75) 0%, transparent 45%)",
-            }}
-          />
-          {/* Aksen warna */}
-          <div
-            className="absolute inset-0 pointer-events-none"
-            style={{
-              background:
-                "radial-gradient(ellipse at 15% 50%, rgba(124,58,237,0.18) 0%, transparent 55%)",
-            }}
-          />
-
-          {/* Content */}
-          <div
-            className="banner-content absolute inset-0 flex flex-col justify-end md:justify-center"
-            style={{ padding: "clamp(16px, 4vw, 56px)" }}
-          >
-            {banner.badge_text && (
+          {/*
+           * Layer 3: Gradient + teks — hanya jika show_title aktif.
+           *   show_title=null  (kolom belum ada)  → default true (judul tampil)
+           *   show_title=true  → judul tampil
+           *   show_title=false → judul disembunyikan, gambar tampil bersih
+           */}
+          {(banner.show_title ?? true) && (
+            <>
+              {/* Gradient kiri untuk keterbacaan teks */}
               <div
-                className="inline-flex items-center gap-1.5 w-fit text-xs font-bold px-3 py-1 rounded-full mb-2"
+                className="absolute inset-0"
                 style={{
-                  background: "rgba(251,191,36,0.2)",
-                  border: "1px solid rgba(251,191,36,0.45)",
-                  color: "#fbbf24",
-                  backdropFilter: "blur(8px)",
+                  background:
+                    "linear-gradient(90deg, rgba(5,3,20,0.88) 0%, rgba(5,3,20,0.60) 38%, rgba(5,3,20,0.15) 65%, transparent 100%)",
                 }}
+              />
+              {/* Gradient bawah untuk mobile */}
+              <div
+                className="absolute inset-0"
+                style={{
+                  background:
+                    "linear-gradient(to top, rgba(5,3,20,0.70) 0%, transparent 40%)",
+                }}
+              />
+              {/* Aksen warna */}
+              <div
+                className="absolute inset-0 pointer-events-none"
+                style={{
+                  background:
+                    "radial-gradient(ellipse at 15% 50%, rgba(124,58,237,0.15) 0%, transparent 55%)",
+                }}
+              />
+
+              {/* Teks konten */}
+              <div
+                className="banner-content absolute inset-0 flex flex-col justify-end md:justify-center"
+                style={{ padding: "clamp(16px, 4vw, 56px)" }}
               >
-                {banner.badge_text}
+                {banner.badge_text && (
+                  <div
+                    className="inline-flex items-center gap-1.5 w-fit text-xs font-bold px-3 py-1 rounded-full mb-2"
+                    style={{
+                      background: "rgba(251,191,36,0.2)",
+                      border: "1px solid rgba(251,191,36,0.45)",
+                      color: "#fbbf24",
+                      backdropFilter: "blur(8px)",
+                    }}
+                  >
+                    {banner.badge_text}
+                  </div>
+                )}
+
+                <h2
+                  className="font-black leading-tight mb-2"
+                  style={{
+                    color: "#ffffff",
+                    fontFamily: "var(--font-outfit)",
+                    fontSize: "clamp(1rem, 3.5vw, 2.4rem)",
+                    maxWidth: "min(60%, 620px)",
+                    textShadow: "0 2px 16px rgba(0,0,0,0.6)",
+                  }}
+                >
+                  {banner.title}
+                </h2>
+
+                {banner.subtitle && (
+                  <p
+                    className="hidden sm:block"
+                    style={{
+                      color: "#cbd5e1",
+                      fontSize: "clamp(0.7rem, 1.6vw, 1rem)",
+                      maxWidth: "min(55%, 540px)",
+                      lineHeight: 1.55,
+                      marginBottom: "clamp(8px, 1.5vw, 16px)",
+                    }}
+                  >
+                    {banner.subtitle}
+                  </p>
+                )}
+
+                {banner.link_url && banner.link_label && (
+                  <Link
+                    href={banner.link_url}
+                    className="btn-gold inline-flex items-center gap-1.5 w-fit"
+                    style={{
+                      fontSize: "clamp(0.65rem, 1.5vw, 0.875rem)",
+                      padding: "clamp(7px, 1.2vw, 11px) clamp(12px, 2vw, 22px)",
+                      borderRadius: 10,
+                    }}
+                  >
+                    <Zap size={13} />
+                    {banner.link_label}
+                  </Link>
+                )}
               </div>
-            )}
+            </>
+          )}
 
-            <h2
-              className="font-black leading-tight mb-2"
-              style={{
-                color: "#ffffff",
-                fontFamily: "var(--font-outfit)",
-                fontSize: "clamp(1rem, 3.5vw, 2.4rem)",
-                maxWidth: "min(60%, 620px)",
-                textShadow: "0 2px 16px rgba(0,0,0,0.6)",
-              }}
-            >
-              {banner.title}
-            </h2>
-
-            {banner.subtitle && (
-              <p
-                className="hidden sm:block"
-                style={{
-                  color: "#cbd5e1",
-                  fontSize: "clamp(0.7rem, 1.6vw, 1rem)",
-                  maxWidth: "min(55%, 540px)",
-                  lineHeight: 1.55,
-                  marginBottom: "clamp(8px, 1.5vw, 16px)",
-                }}
-              >
-                {banner.subtitle}
-              </p>
-            )}
-
-            {banner.link_url && banner.link_label && (
-              <Link
-                href={banner.link_url}
-                className="btn-gold inline-flex items-center gap-1.5 w-fit"
-                style={{
-                  fontSize: "clamp(0.65rem, 1.5vw, 0.875rem)",
-                  padding: "clamp(7px, 1.2vw, 11px) clamp(12px, 2vw, 22px)",
-                  borderRadius: 10,
-                }}
-              >
-                <Zap size={13} />
-                {banner.link_label}
-              </Link>
-            )}
-          </div>
+          {/* Link overlay seluruh area jika show_title=false tapi ada link */}
+          {!(banner.show_title ?? true) && banner.link_url && (
+            <Link href={banner.link_url} className="absolute inset-0" aria-label={banner.title} />
+          )}
         </div>
       </div>
 
       {/* ── Prev / Next ── */}
       {banners.length > 1 && (
         <>
+          {/* Sembunyikan di mobile agar tidak menghalangi konten banner */}
           <button
             id="banner-prev"
             onClick={goPrev}
-            className="absolute left-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center rounded-full transition-all hover:scale-110 active:scale-95"
+            className="hidden sm:flex absolute left-3 top-1/2 -translate-y-1/2 z-20 items-center justify-center rounded-full transition-all hover:scale-110 active:scale-95"
             style={{
-              width: "clamp(28px,4vw,40px)",
-              height: "clamp(28px,4vw,40px)",
+              width: 36,
+              height: 36,
               background: "rgba(255,255,255,0.12)",
               backdropFilter: "blur(8px)",
               border: "1px solid rgba(255,255,255,0.2)",
@@ -253,10 +295,10 @@ export default function BannerCarousel() {
           <button
             id="banner-next"
             onClick={goNext}
-            className="absolute right-3 top-1/2 -translate-y-1/2 z-20 flex items-center justify-center rounded-full transition-all hover:scale-110 active:scale-95"
+            className="hidden sm:flex absolute right-3 top-1/2 -translate-y-1/2 z-20 items-center justify-center rounded-full transition-all hover:scale-110 active:scale-95"
             style={{
-              width: "clamp(28px,4vw,40px)",
-              height: "clamp(28px,4vw,40px)",
+              width: 36,
+              height: 36,
               background: "rgba(255,255,255,0.12)",
               backdropFilter: "blur(8px)",
               border: "1px solid rgba(255,255,255,0.2)",
@@ -277,14 +319,18 @@ export default function BannerCarousel() {
               id={`banner-dot-${i}`}
               onClick={() => go(i > current ? "right" : "left", i)}
               style={{
-                width: i === current ? "clamp(18px,2.5vw,26px)" : "clamp(5px,1vw,7px)",
-                height: "clamp(5px,1vw,7px)",
+                /* Fixed width — tidak trigger layout reflow.
+                   Efek pill aktif pakai transform:scaleX (GPU, bukan layout). */
+                width: 7,
+                height: 7,
                 borderRadius: 100,
                 background: i === current ? "#fbbf24" : "rgba(255,255,255,0.4)",
                 border: "none",
                 cursor: "pointer",
-                transition: "all 0.3s cubic-bezier(0.4,0,0.2,1)",
                 padding: 0,
+                transform: i === current ? "scaleX(3.5)" : "scaleX(1)",
+                transformOrigin: "center",
+                transition: "transform 0.3s cubic-bezier(0.4,0,0.2,1), background 0.3s ease",
               }}
             />
           ))}
@@ -302,31 +348,6 @@ export default function BannerCarousel() {
           }}
         />
       )}
-
-      <style jsx>{`
-        /* ── Tinggi banner responsif ─────────────────────────
-           Gunakan height fixed agar gambar tidak terpotong.
-           object-contain menjaga proporsi gambar asli.
-           Background blur mengisi sisa ruang kosong.
-           ─────────────────────────────────────────────────── */
-        .banner-aspect-container {
-          /* Mobile: minimal 320px, scalable hingga 75vw */
-          height: clamp(320px, 75vw, 480px);
-        }
-        @media (min-width: 640px) {
-          /* Tablet */
-          .banner-aspect-container { height: clamp(380px, 60vw, 520px); }
-        }
-        @media (min-width: 1024px) {
-          /* Desktop: tinggi cukup untuk gambar fullsize */
-          .banner-aspect-container { height: clamp(460px, 55vw, 680px); }
-        }
-
-        @keyframes banner-progress {
-          from { width: 0%; }
-          to   { width: 100%; }
-        }
-      `}</style>
     </section>
   );
 }

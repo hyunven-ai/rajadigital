@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, MessageCircle, Tag, X, Zap } from "lucide-react";
+import { Home, MessageCircle, Tag, X, Zap, Trophy } from "lucide-react";
 import { useEffect, useState, useRef } from "react";
 
 interface WidgetSettings {
@@ -388,7 +388,41 @@ export default function MobileBottomNav() {
             </span>
           </Link>
 
-          {/* Chat — center pill button */}
+          {/* Leaderboard — center highlight item */}
+          <Link
+            id="mobile-nav-leaderboard"
+            href="/leaderboard"
+            style={{
+              display: "flex", flexDirection: "column", alignItems: "center",
+              justifyContent: "center", gap: "3px", flex: 1,
+              textDecoration: "none", padding: "6px 0",
+            }}
+          >
+            <div style={{
+              display: "flex", alignItems: "center", justifyContent: "center",
+              width: "46px", height: "34px", borderRadius: "999px",
+              background: pathname === "/leaderboard"
+                ? "linear-gradient(135deg, var(--amber-light), var(--gold-light))"
+                : "linear-gradient(135deg, var(--gold-light), var(--amber-light))",
+              boxShadow: pathname === "/leaderboard"
+                ? "0 0 0 3px rgba(var(--gold-rgb, 200,150,26), 0.3), 0 4px 18px rgba(var(--gold-rgb, 200,150,26), 0.5)"
+                : "0 4px 18px rgba(var(--gold-rgb, 200,150,26), 0.45)",
+              transition: "all 0.2s",
+            }}>
+              <Trophy size={18} color="#0a0a14" />
+            </div>
+            <span style={{
+              fontSize: "10px",
+              fontWeight: 700,
+              color: pathname === "/leaderboard" ? "var(--gold-light)" : "var(--text-secondary)",
+              letterSpacing: "0.02em",
+              transition: "color 0.2s",
+            }}>
+              Top 10
+            </span>
+          </Link>
+
+          {/* Chat — support panel */}
           <button
             id="mobile-nav-chat"
             onClick={() => setShowSupport((v) => !v)}
@@ -401,23 +435,18 @@ export default function MobileBottomNav() {
           >
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "center",
-              width: "46px", height: "34px", borderRadius: "999px",
-              background: showSupport
-                ? "linear-gradient(135deg, var(--amber-light), var(--gold-light))"
-                : "linear-gradient(135deg, var(--gold-light), var(--amber-light))",
-              boxShadow: showSupport
-                ? "0 0 0 3px rgba(var(--gold-rgb, 200,150,26), 0.3), 0 4px 18px rgba(var(--gold-rgb, 200,150,26), 0.5)"
-                : "0 4px 18px rgba(var(--gold-rgb, 200,150,26), 0.45)",
-              transition: "all 0.2s",
+              width: "28px", height: "28px", borderRadius: "8px",
+              background: showSupport ? "rgba(var(--gold-rgb, 200,150,26), 0.15)" : "transparent",
+              transition: "background 0.2s",
             }}>
               {showSupport
-                ? <X size={18} color="#0a0a14" />
-                : <MessageCircle size={18} color="#0a0a14" />}
+                ? <X size={20} style={{ color: "var(--gold-light)", transition: "color 0.2s" }} strokeWidth={2.5} />
+                : <MessageCircle size={20} style={{ color: "var(--text-muted)", transition: "color 0.2s" }} strokeWidth={2} />}
             </div>
             <span style={{
               fontSize: "10px",
-              fontWeight: 600,
-              color: showSupport ? "var(--gold-light)" : "var(--text-secondary)",
+              fontWeight: showSupport ? 700 : 500,
+              color: showSupport ? "var(--gold-light)" : "var(--text-muted)",
               letterSpacing: "0.02em",
               transition: "color 0.2s",
             }}>

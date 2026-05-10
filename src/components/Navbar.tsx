@@ -63,10 +63,10 @@ export default function Navbar() {
             <Image
               src="https://res.cloudinary.com/dzojrrwtr/image/upload/v1778049885/logo-raja-digital-webp_hwu82q.webp"
               alt="RAJA DIGITAL"
-              width={130}
-              height={44}
+              width={200}
+              height={50}
               className="object-contain"
-              style={{ height: "36px", width: "auto" }}
+              style={{ height: "50px", width: "200px" }}
               priority
             />
           </Link>
@@ -118,10 +118,10 @@ export default function Navbar() {
             <Image
               src="https://res.cloudinary.com/dzojrrwtr/image/upload/v1778049885/logo-raja-digital-webp_hwu82q.webp"
               alt="RAJA DIGITAL"
-              width={140}
-              height={48}
+              width={200}
+              height={50}
               className="object-contain"
-              style={{ height: "40px", width: "auto" }}
+              style={{ height: "50px", width: "200px" }}
               priority
             />
           </Link>

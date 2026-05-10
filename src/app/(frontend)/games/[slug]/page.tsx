@@ -116,6 +116,25 @@ export default function GamePage() {
     });
   })();
 
+  /* ── Resolve icon per-product based on its category ── */
+  const getProductIcon = (product: Product): string => {
+    const catLower = product.category?.toLowerCase() ?? "";
+    // Match currency utama game
+    if (catLower === game.currency?.toLowerCase()) return game.currencyIcon || "💎";
+    // Match extraCurrencies game (dari admin panel)
+    const extra = game.extraCurrencies?.find(
+      (c: any) => c.key === catLower || c.label?.toLowerCase() === catLower
+    );
+    if (extra) return extra.icon;
+    // Fallback map
+    const CAT_MAP: Record<string, string> = {
+      diamond: "💎", uc: "🪙", koin: "🪙", coin: "🪙",
+      chip: "🎰", gold: "🥇", voucher: "🎫",
+      spesial: "⭐", b: "🎰", m: "🎰", "100m": "💰",
+    };
+    return CAT_MAP[catLower] ?? game.currencyIcon ?? "📦";
+  };
+
   /* ── Step 2 → 3 handler ── */
   const handleGoToForm = () => {
     if (!selectedProduct) { alert("Pilih paket terlebih dahulu!"); return; }
@@ -630,7 +649,7 @@ Terima kasih telah memesan di *RAJA DIGITAL*! 🙏`;
                           {/* Icon + Price row */}
                           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
                             <div style={{ fontSize: "30px", lineHeight: 1, flexShrink: 0 }}>
-                              {game.currencyIcon}
+                              {getProductIcon(product)}
                             </div>
                             <div
                               style={{
@@ -721,7 +740,7 @@ Terima kasih telah memesan di *RAJA DIGITAL*! 🙏`;
                           border: `1.5px solid ${isSelected ? game.color + "50" : "var(--border)"}`,
                         }}
                       >
-                        {game.currencyIcon}
+                        {getProductIcon(product)}
                       </div>
                       {/* Name + sub */}
                       <div style={{ flex: 1, minWidth: 0 }}>

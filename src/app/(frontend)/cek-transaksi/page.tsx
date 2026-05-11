@@ -252,18 +252,27 @@ function CekTransaksiContent() {
                   </div>
                 </div>
               </div>
-              {/* Is processed indicator */}
-              <div
-                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
-                style={
-                  tx.is_processed
+              {/* Is processed indicator — derive from status first */}
+              {(() => {
+                const isDone = tx.status === "selesai" || tx.status === "batal" || tx.is_processed;
+                const isCancelled = tx.status === "batal";
+                const label = isCancelled ? "Dibatalkan" : isDone ? "Sudah Diproses" : "Menunggu Proses";
+                const style = isCancelled
+                  ? { background: "rgba(239,68,68,0.12)", color: "#ef4444" }
+                  : isDone
                     ? { background: "rgba(16,185,129,0.15)", color: "#10b981" }
-                    : { background: "rgba(245,158,11,0.1)", color: "#f59e0b" }
-                }
-              >
-                {tx.is_processed ? <CheckCircle size={12} /> : <Clock size={12} />}
-                {tx.is_processed ? "Sudah Diproses" : "Menunggu Proses"}
-              </div>
+                    : { background: "rgba(245,158,11,0.1)", color: "#f59e0b" };
+                const Icon = isCancelled ? XCircle : isDone ? CheckCircle : Clock;
+                return (
+                  <div
+                    className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-lg"
+                    style={style}
+                  >
+                    <Icon size={12} />
+                    {label}
+                  </div>
+                );
+              })()}
             </div>
 
             {/* Detail */}

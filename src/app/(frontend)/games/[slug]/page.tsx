@@ -616,32 +616,38 @@ export default function GamePage() {
                         )}
 
                         {/* ── Main content area ── */}
-                        <div style={{ padding: product.is_popular ? "24px 14px 14px" : "14px 14px 14px", flex: 1 }}>
+                        <div style={{ padding: product.is_popular ? "22px 10px 10px" : "10px 10px 10px", flex: 1 }}>
                           {/* Product name */}
                           <div
                             style={{
                               fontWeight: 700,
-                              fontSize: "14px",
+                              fontSize: "12px",
                               color: "var(--text-primary)",
-                              marginBottom: "12px",
+                              marginBottom: "10px",
                               lineHeight: 1.3,
                               paddingRight: isSelected ? "22px" : "0",
+                              wordBreak: "break-word",
+                              overflowWrap: "break-word",
                             }}
                           >
                             {product.name}
                           </div>
 
                           {/* Icon + Price row */}
-                          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                            <div style={{ fontSize: "30px", lineHeight: 1, flexShrink: 0 }}>
+                          <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
+                            <div style={{ fontSize: "22px", lineHeight: 1, flexShrink: 0 }}>
                               {getProductIcon(product)}
                             </div>
                             <div
                               style={{
                                 fontWeight: 800,
-                                fontSize: "14px",
+                                fontSize: "12px",
                                 color: isSelected ? game.color : "var(--text-primary)",
                                 transition: "color 0.2s ease",
+                                minWidth: 0,
+                                wordBreak: "break-word",
+                                overflowWrap: "break-word",
+                                lineHeight: 1.3,
                               }}
                             >
                               {formatCurrency(product.price)}
@@ -655,7 +661,7 @@ export default function GamePage() {
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "space-between",
-                            padding: "7px 14px",
+                            padding: "6px 10px",
                             background: "rgba(0,0,0,0.2)",
                             borderTop: "1px solid rgba(255,255,255,0.06)",
                           }}

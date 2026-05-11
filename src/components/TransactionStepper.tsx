@@ -8,11 +8,10 @@ export const STEPS = [
   { id: 3, label: "Isi Formulir", icon: "📝", short: "Formulir" },
   { id: 4, label: "Konfirmasi", icon: "✅", short: "Konfirm" },
   { id: 5, label: "Bayar QRIS", icon: "📱", short: "QRIS" },
-  { id: 6, label: "Via WhatsApp", icon: "💬", short: "WhatsApp" },
 ];
 
 interface TransactionStepperProps {
-  currentStep: number; // 1-6
+  currentStep: number; // 1-5
   gameColor?: string;
 }
 

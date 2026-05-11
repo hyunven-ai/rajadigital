@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect, Suspense } from "react";
+import { useSearchParams } from "next/navigation";
 import {
   Search, FileText, Clock, CheckCircle, XCircle,
   Loader2, Hash, Gamepad2, MessageCircle, RefreshCw,
@@ -61,12 +62,24 @@ function detectQueryType(q: string): "invoice" | "game_id" {
   return q.toUpperCase().startsWith("RDG-") ? "invoice" : "game_id";
 }
 
-export default function CekTransaksiPage() {
+function CekTransaksiContent() {
+  const searchParams = useSearchParams();
   const [query,    setQuery]    = useState("");
   const [results,  setResults]  = useState<Transaction[]>([]);
   const [error,    setError]    = useState("");
   const [loading,  setLoading]  = useState(false);
   const [searched, setSearched] = useState(false);
+
+  // Auto-fill dan auto-search dari query param ?q=
+  useEffect(() => {
+    const q = searchParams.get("q");
+    if (q) {
+      setQuery(q);
+      // Auto trigger search
+      setTimeout(() => handleSearch(q), 100);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const handleSearch = async (overrideQuery?: string) => {
     const q = (overrideQuery ?? query).trim();
@@ -503,5 +516,21 @@ export default function CekTransaksiPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CekTransaksiPage() {
+  return (
+    <Suspense fallback={
+      <div className="max-w-2xl mx-auto px-4 py-12 text-center">
+        <div className="w-16 h-16 rounded-2xl flex items-center justify-center mx-auto mb-4"
+          style={{ background: "linear-gradient(135deg,#fbbf24,#f59e0b)" }}>
+          <Search size={28} className="text-slate-900" />
+        </div>
+        <p style={{ color: "var(--text-muted)" }}>Memuat...</p>
+      </div>
+    }>
+      <CekTransaksiContent />
+    </Suspense>
   );
 }

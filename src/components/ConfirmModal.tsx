@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import {
   AlertTriangle, X, Crown, Zap, Loader2,
   QrCode, Copy, Check, CheckCircle2, Download, ZoomIn, ZoomOut,
@@ -51,6 +52,7 @@ function SuccessStep({
   onCopy: () => void;
   onClose: () => void;
 }) {
+  const router = useRouter();
   const rows = [
     { label: "🧾 Invoice", value: invoiceId, isInvoice: true },
     { label: "🎮 Game", value: gameName },
@@ -148,7 +150,10 @@ function SuccessStep({
       <div style={{ display: "flex", flexDirection: "column", gap: "8px" }}>
         <button
           id="success-close-btn"
-          onClick={onClose}
+          onClick={() => {
+            onClose();
+            router.push(`/cek-transaksi?q=${encodeURIComponent(invoiceId)}`);
+          }}
           style={{
             width: "100%", padding: "14px", borderRadius: "14px",
             border: "none", cursor: "pointer",
@@ -159,7 +164,8 @@ function SuccessStep({
           }}
         >
           <CheckCircle2 size={18} />
-          Selesai
+          Selesai — Cek Status Transaksi
+          <ArrowRight size={16} />
         </button>
       </div>
     </div>

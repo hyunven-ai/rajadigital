@@ -6,11 +6,23 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY ?? "";
 const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY  ?? "";
 
 // ── Browser client (anon key, subject to RLS) ──────────────────────────────
-// Use lazy getter so module-level evaluation doesn't crash during build
+// Singleton — satu instance agar WebSocket Realtime bisa terbentuk dengan benar
+let _supabaseClient: ReturnType<typeof createClient> | null = null;
+
+function getSupabaseClient() {
+  if (!_supabaseClient) {
+    _supabaseClient = createClient(supabaseUrl, supabaseAnonKey, {
+      realtime: {
+        params: { eventsPerSecond: 10 },
+      },
+    });
+  }
+  return _supabaseClient;
+}
+
 export const supabase = new Proxy({} as ReturnType<typeof createClient>, {
   get(_target, prop) {
-    const client = createClient(supabaseUrl, supabaseAnonKey);
-    return (client as any)[prop];
+    return (getSupabaseClient() as any)[prop];
   },
 });
 

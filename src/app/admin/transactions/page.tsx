@@ -88,6 +88,8 @@ export default function AdminTransactionsPage() {
   const [logs,          setLogs]           = useState<ActivityLog[]>([]);
   const [loadingLogs,   setLoadingLogs]    = useState(false);
   const [newIds,  setNewIds]  = useState<Set<string>>(new Set());
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+  const [newTxToast, setNewTxToast] = useState<{ name: string; game: string; price: number } | null>(null);
 
   /* ── Export state ── */
   const [showExport, setShowExport] = useState(false);
@@ -145,20 +147,47 @@ export default function AdminTransactionsPage() {
 
   /* ── Realtime ── */
   useEffect(() => {
+    console.log("[Realtime] Subscribing to transactions channel...");
+
     const channel = supabase
-      .channel("transactions-page")
-      .on("postgres_changes", { event: "INSERT", schema: "public", table: "transactions" }, (payload) => {
-        const tx = payload.new as Transaction;
-        setTransactions(prev => [tx, ...prev]);
-        setNewIds(prev => new Set(prev).add(tx.id));
-        setTimeout(() => setNewIds(prev => { const n = new Set(prev); n.delete(tx.id); return n; }), 4000);
-      })
-      .on("postgres_changes", { event: "UPDATE", schema: "public", table: "transactions" }, (payload) => {
-        const updated = payload.new as Transaction;
-        setTransactions(prev => prev.map(t => t.id === updated.id ? updated : t));
-      })
-      .subscribe();
-    return () => { supabase.removeChannel(channel); };
+      .channel("admin-transactions-v2")
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        "postgres_changes" as any,
+        { event: "INSERT", schema: "public", table: "transactions" },
+        (payload: { new: Transaction }) => {
+          console.log("[Realtime] INSERT received:", payload.new);
+          const tx = payload.new;
+          setTransactions(prev => [tx, ...prev]);
+          setNewIds(prev => new Set(prev).add(tx.id));
+          setTimeout(() => setNewIds(prev => { const n = new Set(prev); n.delete(tx.id); return n; }), 4000);
+          setNewTxToast({ name: tx.username || tx.game_id, game: tx.game_name, price: tx.product_price });
+          setTimeout(() => setNewTxToast(null), 5000);
+        }
+      )
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        "postgres_changes" as any,
+        { event: "UPDATE", schema: "public", table: "transactions" },
+        (payload: { new: Transaction }) => {
+          console.log("[Realtime] UPDATE received:", payload.new);
+          const updated = payload.new;
+          setTransactions(prev => prev.map(t => t.id === updated.id ? updated : t));
+        }
+      )
+      .subscribe((status, err) => {
+        console.log("[Realtime] Status:", status, err ?? "");
+        setRealtimeConnected(status === "SUBSCRIBED");
+        if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
+          console.warn("[Realtime] Connection issue, retrying in 3s...");
+          setTimeout(() => channel.subscribe(), 3000);
+        }
+      });
+
+    return () => {
+      console.log("[Realtime] Unsubscribing...");
+      supabase.removeChannel(channel);
+    };
   }, []);
 
   /* ── Fetch logs ── */
@@ -462,13 +491,76 @@ export default function AdminTransactionsPage() {
   return (
     <>
     <div onClick={unlock} onKeyDown={unlock}>
+
+      {/* ── Toast: Transaksi Baru Masuk ── */}
+      {newTxToast && (
+        <div
+          style={{
+            position: "fixed", bottom: 24, right: 24, zIndex: 9999,
+            background: "linear-gradient(135deg, #1e293b, #0f172a)",
+            border: "1px solid rgba(16,185,129,0.4)",
+            borderRadius: 16, padding: "14px 18px",
+            boxShadow: "0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(16,185,129,0.15)",
+            display: "flex", alignItems: "flex-start", gap: 12,
+            minWidth: 280, maxWidth: 340,
+            animation: "slideInRight 0.3s ease",
+          }}
+        >
+          <div style={{
+            width: 36, height: 36, borderRadius: "50%", flexShrink: 0,
+            background: "rgba(16,185,129,0.15)", border: "1.5px solid rgba(16,185,129,0.4)",
+            display: "flex", alignItems: "center", justifyContent: "center",
+            fontSize: 18,
+          }}>🛒</div>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <p style={{ fontSize: 12, fontWeight: 700, color: "#10b981", margin: "0 0 2px" }}>
+              Transaksi Baru Masuk!
+            </p>
+            <p style={{ fontSize: 13, fontWeight: 700, color: "var(--text-primary)", margin: "0 0 2px", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+              {newTxToast.name} — {newTxToast.game}
+            </p>
+            <p style={{ fontSize: 11, color: "#fbbf24", margin: 0, fontWeight: 700 }}>
+              {formatCurrency(newTxToast.price)}
+            </p>
+          </div>
+          <button
+            onClick={() => setNewTxToast(null)}
+            style={{ background: "none", border: "none", cursor: "pointer", color: "var(--text-muted)", padding: 2, flexShrink: 0 }}
+          >
+            <X size={14} />
+          </button>
+        </div>
+      )}
+
       {/* ── Header ── */}
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-black mb-1" style={{ fontFamily: "var(--font-outfit)", color: "var(--text-primary)" }}>
             Manajemen Transaksi
           </h1>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Kelola dan pantau semua transaksi masuk</p>
+          <p className="text-sm flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
+            Kelola dan pantau semua transaksi masuk
+            {/* Badge status realtime */}
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold"
+              style={
+                realtimeConnected
+                  ? { background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "#10b981" }
+                  : { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444" }
+              }
+            >
+              <span
+                style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: realtimeConnected ? "#10b981" : "#ef4444",
+                  display: "inline-block",
+                  boxShadow: realtimeConnected ? "0 0 6px #10b981" : "none",
+                  animation: realtimeConnected ? "pulse 2s ease-in-out infinite" : "none",
+                }}
+              />
+              {realtimeConnected ? "Realtime aktif" : "Menghubungkan..."}
+            </span>
+          </p>
         </div>
         <div className="flex items-center gap-3 flex-wrap">
           <button id="refresh-tx-btn"

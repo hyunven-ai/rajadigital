@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useGames } from "@/hooks/useGames";
 import {
   Gamepad2, ShoppingCart, ClipboardList, ScanLine,
-  CheckCircle2, MessageCircle, Zap, ChevronRight, QrCode, Download,
+  CheckCircle2, Zap, ChevronRight, QrCode, Download,
 } from "lucide-react";
 
 const STEPS = [
@@ -47,20 +47,11 @@ const STEPS = [
   {
     num: 5,
     icon: ScanLine,
-    title: "Scan & Bayar via QRIS",
+    title: "Bayar & Selesai",
     color: "#22c55e",
-    desc: "Scan barcode QRIS yang muncul di modal pembayaran menggunakan aplikasi e-wallet kamu.",
-    detail: "Tersedia di GoPay, OVO, Dana, ShopeePay, LINK Aja, M-Banking, dan semua aplikasi QRIS lainnya. Kamu juga bisa download QR-nya untuk discan nanti.",
+    desc: "Scan QRIS, centang sudah bayar, lalu klik 'Beli Sekarang' — transaksi langsung berhasil!",
+    detail: "Tersedia di GoPay, OVO, Dana, ShopeePay, LINK Aja, M-Banking, dan semua aplikasi QRIS lainnya. Kamu bisa upload bukti transfer (opsional). Invoice ID akan muncul otomatis setelah klik Beli Sekarang.",
     badge: "qris",
-  },
-  {
-    num: 6,
-    icon: MessageCircle,
-    title: "Konfirmasi via Livechat",
-    color: "#60a5fa",
-    desc: "Klik 'Beli Sekarang', salin Invoice ID, dan kirimkan bukti transfer ke Livechat admin.",
-    detail: "Admin akan verifikasi pembayaran dan memproses top up ke akun game kamu. Proses biasanya selesai dalam 1–5 menit.",
-    badge: "livechat",
   },
 ];
 
@@ -110,7 +101,7 @@ export default function CaraTopUpPage() {
             Cara <span style={{ background: "linear-gradient(135deg,#fbbf24,#f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Top Up</span>
           </h1>
           <p className="text-lg mb-3" style={{ color: "#94a3b8" }}>
-            Ikuti 6 langkah mudah berikut untuk top up game favoritmu dengan cepat dan aman.
+            Ikuti 5 langkah mudah berikut untuk top up game favoritmu dengan cepat dan aman.
           </p>
           {/* New QRIS badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8 text-xs font-semibold"
@@ -128,9 +119,9 @@ export default function CaraTopUpPage() {
       {/* ── Steps ── */}
       <section className="max-w-4xl mx-auto px-4 py-16">
         <div className="relative">
-          {/* Vertical line */}
+          {/* Vertical line — 5 steps */}
           <div className="absolute left-8 top-0 bottom-0 w-0.5 hidden md:block"
-            style={{ background: "linear-gradient(to bottom, #fbbf24, #a78bfa, #34d399, #fb923c, #22c55e, #60a5fa)", opacity: 0.3 }} />
+            style={{ background: "linear-gradient(to bottom, #fbbf24, #a78bfa, #34d399, #fb923c, #22c55e)", opacity: 0.3 }} />
 
           <div className="space-y-6">
             {STEPS.map((step, idx) => {
@@ -172,7 +163,7 @@ export default function CaraTopUpPage() {
                       </div>
                     )}
 
-                    {/* Langkah 5: QRIS info */}
+                    {/* Langkah 5: QRIS info + selesai */}
                     {step.badge === "qris" && (
                       <div className="mt-3 space-y-2">
                         <div className="flex flex-wrap gap-2">
@@ -183,22 +174,15 @@ export default function CaraTopUpPage() {
                             </span>
                           ))}
                         </div>
-                        <div className="flex items-center gap-2 mt-1">
+                        <div className="flex flex-wrap items-center gap-2 mt-1">
                           <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
                             style={{ background: "rgba(124,58,237,0.12)", color: "#a78bfa", border: "1px solid rgba(124,58,237,0.2)" }}>
                             <Download size={11} /> Download QR tersedia di modal
                           </div>
-                        </div>
-                      </div>
-                    )}
-
-                    {/* Langkah 6: Livechat flow */}
-                    {step.badge === "livechat" && (
-                      <div className="mt-3">
-                        <div className="flex items-start gap-3 p-3 rounded-xl text-xs"
-                          style={{ background: "rgba(96,165,250,0.08)", border: "1px solid rgba(96,165,250,0.2)", color: "#93c5fd" }}>
-                          <span className="text-base leading-none mt-0.5">💬</span>
-                          <span>Buka <strong>Widget Livechat</strong> di pojok layar dan kirimkan Invoice ID beserta bukti transfer agar admin dapat langsung memprosesnya.</span>
+                          <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
+                            style={{ background: "rgba(16,185,129,0.12)", color: "#10b981", border: "1px solid rgba(16,185,129,0.2)" }}>
+                            ✅ Langsung selesai setelah klik Beli Sekarang!
+                          </div>
                         </div>
                       </div>
                     )}
@@ -219,20 +203,19 @@ export default function CaraTopUpPage() {
       {/* ── QRIS Info Banner ── */}
       <section className="max-w-4xl mx-auto px-4 pb-10">
         <div className="rounded-2xl p-6 flex items-start gap-4"
-          style={{ background: "linear-gradient(135deg, rgba(34,197,94,0.08), rgba(96,165,250,0.08))", border: "1px solid rgba(34,197,94,0.25)" }}>
+          style={{ background: "linear-gradient(135deg, rgba(34,197,94,0.08), rgba(251,191,36,0.08))", border: "1px solid rgba(34,197,94,0.25)" }}>
           <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
             style={{ background: "rgba(34,197,94,0.15)", border: "1px solid rgba(34,197,94,0.3)" }}>
             <QrCode size={22} style={{ color: "#22c55e" }} />
           </div>
           <div>
             <h3 className="font-bold mb-1" style={{ color: "#22c55e", fontFamily: "var(--font-outfit)" }}>
-              ✅ Pembayaran QRIS Langsung di Website
+              ✅ Transaksi Selesai Otomatis
             </h3>
             <p className="text-sm leading-relaxed" style={{ color: "#94a3b8" }}>
-              Kamu <strong className="text-white">tidak perlu lagi tanya metode pembayaran ke admin</strong>.
-              Setelah konfirmasi pesanan, barcode QRIS akan langsung muncul di modal — scan, bayar, lalu klik{" "}
-              <strong className="text-yellow-400">Beli Sekarang</strong> untuk mendapatkan Invoice ID, lalu konfirmasi ke Livechat admin.
-              Proses lebih cepat dan transparan.
+              Setelah scan QRIS dan klik <strong className="text-yellow-400">Beli Sekarang</strong>,
+              transaksi langsung <strong className="text-white">berhasil dibuat</strong> dan Invoice ID muncul otomatis.
+              Tidak perlu konfirmasi ke WhatsApp atau Livechat lagi — admin langsung menerima pesananmu.
             </p>
           </div>
         </div>
@@ -247,10 +230,9 @@ export default function CaraTopUpPage() {
           <p className="text-sm mb-5" style={{ color: "var(--text-muted)" }}>
             Pembayaran dilakukan langsung via QRIS di modal pembelian — otomatis dan transparan.
           </p>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 gap-3">
             {[
               { icon: "📲", label: "QRIS", desc: "GoPay, OVO, Dana, ShopeePay, M-Banking, dan semua aplikasi QRIS lainnya", color: "#22c55e" },
-              { icon: "💬", label: "Konfirmasi via Livechat", desc: "Kirim bukti pembayaran beserta Invoice ID ke Livechat setelah klik Beli Sekarang", color: "#60a5fa" },
             ].map(pm => (
               <div key={pm.label}
                 className="flex items-center gap-4 p-4 rounded-xl"

@@ -151,11 +151,29 @@ export default function GamePage() {
     setModalOpen(true);
   };
 
-  const handleConfirm = async (paidViaQris: boolean = false) => {
+  const handleConfirm = async (paidViaQris: boolean = false, paymentProof?: File | null) => {
     if (!selectedProduct) return;
     setIsSubmitting(true);
     try {
       const invoiceId = generateInvoiceId();
+
+      // Upload bukti transfer jika ada
+      let paymentProofUrl: string | null = null;
+      if (paymentProof) {
+        const fd = new FormData();
+        fd.append("file", paymentProof);
+        fd.append("invoice_id", invoiceId);
+        try {
+          const uploadRes = await fetch("/api/upload-proof", { method: "POST", body: fd });
+          if (uploadRes.ok) {
+            const uploadData = await uploadRes.json();
+            paymentProofUrl = uploadData.url ?? null;
+          }
+        } catch {
+          // Upload gagal tidak menghentikan proses transaksi
+        }
+      }
+
       const res = await fetch("/api/create-invoice", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -168,48 +186,15 @@ export default function GamePage() {
           product_id:    selectedProduct.id,
           product_name:  selectedProduct.name,
           product_price: selectedProduct.price,
+          payment_proof: paymentProofUrl,
         }),
       });
 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Gagal membuat invoice");
 
-      // Langsung redirect ke WhatsApp tanpa menampilkan SuccessStep
-      try {
-        const waRes = await fetch("/api/wa-number", { cache: "no-store" });
-        const waData = await waRes.json();
-        if (waData?.number) {
-          const paket = selectedProduct.amount
-            ? `${selectedProduct.amount}${selectedProduct.category ? " " + selectedProduct.category : ""}`.trim()
-            : selectedProduct.name ?? "-";
-          const harga = formatCurrency(selectedProduct.price);
-          const usernameVal = username || "-";
-          const msg =
-`🛒 *ORDER RAJA DIGITAL* 🛒
-
-🧾 Invoice ID: *${invoiceId}*
-🎮 Game: *${game.name}*
-🆔 Game ID: *${gameId}*
-👤 Nama Pengguna: *${usernameVal}*
-🪙 Koin Paket: *${paket}*
-💰 Harga: *${harga}*
-📱 No. WA: *${whatsapp}*
-
-${paidViaQris ? "✅ Pembayaran: Sudah dibayar via QRIS\n💰 Nominal: *" + harga + "*\n\n📸 Mohon lampirkan *bukti pembayaran QRIS* ke chat ini agar pesanan segera diproses." : "💬 Belum melakukan pembayaran — mohon konfirmasi metode pembayaran."}
-
-Terima kasih telah memesan di *RAJA DIGITAL*! 🙏`;
-          const waUrl = `https://wa.me/${waData.number.replace(/\D/g, "")}?text=${encodeURIComponent(msg)}`;
-          window.open(waUrl, "_blank", "noopener,noreferrer");
-        }
-      } catch {
-        // Jika gagal fetch WA number, lanjut tampilkan SuccessStep sebagai fallback
-        setSuccessInvoiceId(invoiceId);
-        return;
-      }
-
-      // Tutup modal setelah redirect
-      setModalOpen(false);
-      setSuccessInvoiceId(null);
+      // Tampilkan SuccessStep (tidak redirect WA otomatis)
+      setSuccessInvoiceId(invoiceId);
     } catch (err: unknown) {
       alert(err instanceof Error ? err.message : "Terjadi kesalahan. Pastikan Anda sudah menjalankan SQL migration untuk kolom username di Supabase (lihat instruksi AI).");
     } finally {

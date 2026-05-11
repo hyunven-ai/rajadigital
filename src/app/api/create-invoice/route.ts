@@ -45,7 +45,7 @@ export async function POST(req: NextRequest) {
 
   try {
     const body = await req.json();
-    const { invoice_id, game_id, game_name, whatsapp, product_id, product_name, product_price } = body;
+    const { invoice_id, game_id, game_name, whatsapp, product_id, product_name, product_price, payment_proof } = body;
 
     // Validasi input
     if (!invoice_id || !game_id || !whatsapp || !product_id || !product_name || !product_price) {
@@ -77,6 +77,7 @@ export async function POST(req: NextRequest) {
         product_id:    validProductId,
         product_name,
         product_price,
+        payment_proof: payment_proof ?? null,
       });
     } else {
       // Mode development — log saja, tidak simpan ke DB

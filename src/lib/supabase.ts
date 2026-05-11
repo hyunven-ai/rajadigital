@@ -69,6 +69,7 @@ export async function createTransaction(payload: {
   product_id: string | null;
   product_name: string;
   product_price: number;
+  payment_proof?: string | null;
 }) {
   const db = createServerSupabase();
   const insertPayload: any = { ...payload };

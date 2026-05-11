@@ -25,6 +25,7 @@ interface Transaction {
   status: "pending" | "selesai" | "batal";
   is_processed: boolean;
   notes?: string;
+  payment_proof?: string | null;
   created_at: string;
 }
 
@@ -758,7 +759,7 @@ export default function AdminTransactionsPage() {
                     />
                   </th>
                   <th>Invoice</th><th>Game ID</th><th>Nama</th>
-                  <th>Paket</th><th>Harga</th><th>WhatsApp</th><th>Catatan</th>
+                  <th>Paket</th><th>Harga</th><th>WhatsApp</th><th>Bukti Transfer</th><th>Catatan</th>
                   <th>Waktu</th><th>Status</th><th>Ubah Status</th>
                 </tr>
               </thead>
@@ -827,6 +828,24 @@ export default function AdminTransactionsPage() {
                         </a>
                       </td>
                       <td>
+                        {t.payment_proof ? (
+                          <a href={t.payment_proof} target="_blank" rel="noreferrer"
+                            className="flex items-center gap-1 text-xs hover:opacity-80"
+                            style={{ color: "#10b981" }}
+                            title="Lihat bukti transfer"
+                          >
+                            <span style={{
+                              display: "inline-flex", alignItems: "center", gap: 4,
+                              padding: "2px 8px", borderRadius: 6, fontSize: 10, fontWeight: 700,
+                              background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)",
+                              color: "#10b981",
+                            }}>📷 Lihat</span>
+                          </a>
+                        ) : (
+                          <span className="text-xs" style={{ color: "var(--border)" }}>—</span>
+                        )}
+                      </td>
+                      <td>
                         {(() => {
                           const { notes } = parseNotes(t.notes);
                           return notes
@@ -865,7 +884,7 @@ export default function AdminTransactionsPage() {
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={11} className="text-center py-12" style={{ color: "var(--text-muted)" }}>
+                    <td colSpan={12} className="text-center py-12" style={{ color: "var(--text-muted)" }}>
                       <MessageCircle size={36} className="mx-auto mb-3 opacity-20" />
                       <p className="text-sm">{search ? `Tidak ada hasil untuk "${search}"` : "Belum ada transaksi"}</p>
                     </td>
@@ -891,7 +910,7 @@ export default function AdminTransactionsPage() {
                         )}
                       </div>
                     </td>
-                    <td colSpan={5} />
+                    <td colSpan={6} />
                   </tr>
                 </tfoot>
               )}

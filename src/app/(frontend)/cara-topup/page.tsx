@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useGames } from "@/hooks/useGames";
 import {
-  Gamepad2, ShoppingCart, ClipboardList, ScanLine,
+  Gamepad2, ClipboardList, ScanLine,
   CheckCircle2, Zap, ChevronRight, QrCode, Download,
 } from "lucide-react";
 
@@ -19,35 +19,26 @@ const STEPS = [
   },
   {
     num: 2,
-    icon: ShoppingCart,
-    title: "Pilih Paket",
-    color: "#a78bfa",
-    desc: "Pilih nominal Diamond, UC, Koin, Chip, atau Voucher sesuai kebutuhan kamu.",
-    detail: "Tersedia berbagai nominal mulai dari yang kecil hingga besar dengan harga terbaik.",
-    badge: null,
-  },
-  {
-    num: 3,
     icon: ClipboardList,
-    title: "Isi Formulir",
-    color: "#34d399",
-    desc: "Masukkan Game ID, pilih paket yang diinginkan, dan isi nomor WhatsApp aktif kamu.",
-    detail: "Game ID bisa ditemukan di profil game kamu. Nomor WhatsApp digunakan untuk konfirmasi transaksi.",
+    title: "Isi Formulir & Pilih Paket",
+    color: "#a78bfa",
+    desc: "Isi Game ID, Nama Pengguna, dan Nomor WhatsApp, lalu pilih nominal paket yang kamu inginkan.",
+    detail: "Game ID bisa ditemukan di profil game kamu. Pilihan paket tersedia mulai dari nominal kecil hingga besar. Formulir dan pilihan paket ada dalam satu halaman yang sama.",
     badge: "form",
   },
   {
-    num: 4,
+    num: 3,
     icon: CheckCircle2,
-    title: "Cek & Konfirmasi Pesanan",
+    title: "Konfirmasi Pesanan",
     color: "#fb923c",
-    desc: "Klik 'Konfirmasi & Pesan Sekarang' lalu periksa kembali detail pesananmu.",
-    detail: "Pastikan Game ID, paket, dan nomor WhatsApp sudah benar sebelum melanjutkan.",
+    desc: "Klik 'Cek & Konfirmasi Pesanan' — periksa kembali detail pesananmu sebelum bayar.",
+    detail: "Pastikan Game ID, paket, dan nomor WhatsApp sudah benar sebelum melanjutkan ke pembayaran.",
     badge: null,
   },
   {
-    num: 5,
+    num: 4,
     icon: ScanLine,
-    title: "Bayar & Selesai",
+    title: "Bayar QRIS & Selesai",
     color: "#22c55e",
     desc: "Scan QRIS, centang sudah bayar, lalu klik 'Beli Sekarang' — transaksi langsung berhasil!",
     detail: "Tersedia di GoPay, OVO, Dana, ShopeePay, LINK Aja, M-Banking, dan semua aplikasi QRIS lainnya. Kamu bisa upload bukti transfer (opsional). Invoice ID akan muncul otomatis setelah klik Beli Sekarang.",
@@ -101,7 +92,7 @@ export default function CaraTopUpPage() {
             Cara <span style={{ background: "linear-gradient(135deg,#fbbf24,#f59e0b)", WebkitBackgroundClip: "text", WebkitTextFillColor: "transparent", backgroundClip: "text" }}>Top Up</span>
           </h1>
           <p className="text-lg mb-3" style={{ color: "#94a3b8" }}>
-            Ikuti 5 langkah mudah berikut untuk top up game favoritmu dengan cepat dan aman.
+            Ikuti 4 langkah mudah berikut untuk top up game favoritmu dengan cepat dan aman.
           </p>
           {/* New QRIS badge */}
           <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-8 text-xs font-semibold"

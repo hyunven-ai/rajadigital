@@ -321,7 +321,7 @@ export default function ConfirmModal({
         {!successInvoiceId && (
           <div className="flex items-center gap-2 mb-5">
             {(["detail", "qris"] as const).map((s, i) => {
-              const labels = ["4 · Konfirmasi", "5 · Bayar QRIS"];
+              const labels = ["3 · Konfirmasi", "4 · Bayar QRIS"];
               const isDone = ["detail", "qris"].indexOf(step) > i;
               const isActive = step === s;
               return (
@@ -337,7 +337,7 @@ export default function ConfirmModal({
                             : { background: "var(--bg-secondary)", color: "var(--text-muted)", border: "1px solid var(--border)" }
                       }
                     >
-                      {isDone ? <Check size={12} /> : i + 4}
+                      {isDone ? <Check size={12} /> : i + 3}
                     </div>
                     <span
                       className="text-xs font-semibold hidden sm:block"

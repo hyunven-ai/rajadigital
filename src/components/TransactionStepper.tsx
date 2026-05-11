@@ -3,15 +3,14 @@
 import { Check } from "lucide-react";
 
 export const STEPS = [
-  { id: 1, label: "Pilih Game", icon: "🎮", short: "Game" },
-  { id: 2, label: "Pilih Paket", icon: "📦", short: "Paket" },
-  { id: 3, label: "Isi Formulir", icon: "📝", short: "Formulir" },
-  { id: 4, label: "Konfirmasi", icon: "✅", short: "Konfirm" },
-  { id: 5, label: "Bayar QRIS", icon: "📱", short: "QRIS" },
+  { id: 1, label: "Pilih Game",       icon: "🎮", short: "Game"    },
+  { id: 2, label: "Formulir & Paket", icon: "📝", short: "Formulir" },
+  { id: 3, label: "Konfirmasi",       icon: "✅", short: "Konfirm"  },
+  { id: 4, label: "Bayar QRIS",       icon: "📱", short: "QRIS"     },
 ];
 
 interface TransactionStepperProps {
-  currentStep: number; // 1-5
+  currentStep: number; // 1-4
   gameColor?: string;
 }
 

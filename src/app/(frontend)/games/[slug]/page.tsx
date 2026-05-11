@@ -7,7 +7,7 @@ import Link from "next/link";
 import {
   ChevronLeft, ChevronRight, Gem, Coins, User,
   Phone, Loader2, RefreshCw, Star, Zap, Shield,
-  LayoutGrid, List, ArrowRight,
+  LayoutGrid, List,
 } from "lucide-react";
 import ConfirmModal from "@/components/ConfirmModal";
 import TransactionStepper from "@/components/TransactionStepper";
@@ -39,7 +39,7 @@ export default function GamePage() {
   const [successInvoiceId, setSuccessInvoiceId] = useState<string | null>(null);
   const [viewMode,         setViewMode]         = useState<"grid" | "list">("grid");
   // pageStep: 2 = Pilih Paket, 3 = Isi Formulir
-  const [pageStep,         setPageStep]         = useState<2 | 3>(2);
+
 
 
   /* ── Fetch produk berdasarkan game ── */
@@ -133,13 +133,6 @@ export default function GamePage() {
       spesial: "⭐", b: "🎰", m: "🎰", "100m": "💰",
     };
     return CAT_MAP[catLower] ?? game.currencyIcon ?? "📦";
-  };
-
-  /* ── Step 2 → 3 handler ── */
-  const handleGoToForm = () => {
-    if (!selectedProduct) { alert("Pilih paket terlebih dahulu!"); return; }
-    setPageStep(3);
-    setTimeout(() => document.getElementById("order-section")?.scrollIntoView({ behavior: "smooth" }), 80);
   };
 
   /* ── Order handlers ── */
@@ -313,13 +306,13 @@ export default function GamePage() {
       {/* ── Order Section ─────────────────────────── */}
       <div id="order-section" className="max-w-5xl mx-auto px-4 py-10">
 
-        {/* ── 6-Step Wizard Indicator ── */}
-        <TransactionStepper currentStep={pageStep} gameColor={game.color} />
+        {/* ── 4-Step Wizard Indicator ── */}
+        <TransactionStepper currentStep={2} gameColor={game.color} />
 
         <div className="card p-6 md:p-8">
           <div className="flex items-center justify-between mb-6">
             <h2 className="text-xl font-bold" style={{ fontFamily: "var(--font-outfit)", color: "var(--text-primary)" }}>
-              {pageStep === 2 ? "📦 Pilih Paket" : "📝 Isi Formulir"} — {game.name}
+              {"📝 Isi Formulir & Pilih Paket"} — {game.name}
             </h2>
             <button
               onClick={fetchProducts}
@@ -331,10 +324,9 @@ export default function GamePage() {
           </div>
 
           {/* ── STEP 2: Pilih Paket ── */}
-          {pageStep === 2 && (
           <div>
 
-          {/* Step 4 — Pilih Nominal Top Up */}
+          {/* Pilih Nominal Top Up */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <label className="block text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
@@ -770,50 +762,29 @@ export default function GamePage() {
                 })}
               </div>
             )}
-          </div>
+          </div> {/* end product grid */}
 
-            {/* Step 2 → Next button */}
-            <button
-              id="btn-next-to-form"
-              onClick={handleGoToForm}
-              disabled={loadingProducts || !selectedProduct}
-              className="w-full flex items-center justify-center gap-2 text-base font-bold py-4 rounded-2xl transition-all hover:opacity-90 mt-4"
-              style={{
-                background: selectedProduct ? `linear-gradient(135deg, ${game.color}, ${game.color}cc)` : "var(--bg-secondary)",
-                color: selectedProduct ? "#0f172a" : "var(--text-muted)",
-                boxShadow: selectedProduct ? `0 4px 20px ${game.color}30` : "none",
-                opacity: loadingProducts ? 0.6 : 1,
-                cursor: selectedProduct ? "pointer" : "not-allowed",
-              }}
-            >
-              {loadingProducts ? <Loader2 size={18} className="animate-spin" /> : <ArrowRight size={18} />}
-              Lanjut ke Isi Formulir
-            </button>
-          </div>
-          )} {/* end pageStep === 2 */}
+          {/* ── Separator ── */}
+          <div style={{ height: "1px", background: "var(--border)", margin: "24px 0" }} />
 
-          {/* ── STEP 3: Isi Formulir ── */}
-          {pageStep === 3 && (
+          {/* ── Formulir Isi Data ── */}
           <div>
-            {/* Selected package summary */}
+            <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
+              <span style={{ fontSize: "18px" }}>📝</span> Isi Data Kamu
+            </h3>
+
+            {/* Paket dipilih (summary) */}
             {selectedProduct && (
               <div
-                className="rounded-2xl p-4 mb-5 flex items-center justify-between"
+                className="rounded-2xl p-3 mb-4 flex items-center justify-between"
                 style={{ background: `${game.color}12`, border: `1.5px solid ${game.color}35` }}
               >
                 <div>
                   <div className="text-xs font-semibold mb-0.5" style={{ color: "var(--text-muted)" }}>Paket dipilih</div>
                   <div className="text-sm font-bold" style={{ color: "var(--text-primary)" }}>{selectedProduct.name}</div>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-xl font-black" style={{ color: game.color }}>
-                    {formatCurrency(selectedProduct.price)}
-                  </div>
-                  <button
-                    onClick={() => setPageStep(2)}
-                    className="text-xs px-2 py-1 rounded-lg font-semibold"
-                    style={{ background: "var(--bg-secondary)", color: "var(--text-muted)", border: "1px solid var(--border)" }}
-                  >Ganti</button>
+                <div className="text-base font-black" style={{ color: game.color }}>
+                  {formatCurrency(selectedProduct.price)}
                 </div>
               </div>
             )}
@@ -857,32 +828,29 @@ export default function GamePage() {
               />
             </div>
 
-            {/* Navigation */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => setPageStep(2)}
-                className="btn-outline"
-                style={{ padding: "12px 20px", flexShrink: 0 }}
-              >
-                <ChevronLeft size={16} className="inline" /> Kembali
-              </button>
-              <button
-                id="btn-order-now"
-                onClick={() => { setSuccessInvoiceId(null); handleOrder(); }}
-                disabled={isSubmitting}
-                className="flex-1 flex items-center justify-center gap-2 text-base font-bold py-3 rounded-2xl transition-all hover:opacity-90"
-                style={{
-                  background: `linear-gradient(135deg, ${game.color}, ${game.color}cc)`,
-                  color: "#0f172a",
-                  boxShadow: `0 4px 20px ${game.color}30`,
-                }}
-              >
-                {isSubmitting ? <Loader2 size={18} className="animate-spin" /> : <ChevronRight size={18} />}
-                Cek &amp; Konfirmasi Pesanan
-              </button>
-            </div>
-          </div>
-          )} {/* end pageStep === 3 */}
+            {/* Tombol Konfirmasi */}
+            <button
+              id="btn-order-now"
+              onClick={() => { setSuccessInvoiceId(null); handleOrder(); }}
+              disabled={isSubmitting || !selectedProduct}
+              className="w-full flex items-center justify-center gap-2 text-base font-bold py-4 rounded-2xl transition-all hover:opacity-90"
+              style={{
+                background: selectedProduct
+                  ? `linear-gradient(135deg, ${game.color}, ${game.color}cc)`
+                  : "var(--bg-secondary)",
+                color: selectedProduct ? "#0f172a" : "var(--text-muted)",
+                boxShadow: selectedProduct ? `0 4px 20px ${game.color}30` : "none",
+                cursor: selectedProduct ? "pointer" : "not-allowed",
+              }}
+            >
+              {isSubmitting
+                ? <Loader2 size={18} className="animate-spin" />
+                : <ChevronRight size={18} />}
+              {selectedProduct ? "Cek & Konfirmasi Pesanan" : "Pilih paket terlebih dahulu"}
+            </button>
+          </div> {/* end formulir */}
+
+          </div> {/* end step wrapper */}
 
         </div>
 

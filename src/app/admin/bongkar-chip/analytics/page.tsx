@@ -245,7 +245,7 @@ export default function BongkarAnalyticsPage() {
               <div style={{ display: "flex", gap: 6 }}>
                 {(["requests", "nominal"] as const).map(c => (
                   <button key={c} onClick={() => setActiveChart(c)} style={{
-                    padding: "5px 12px", borderRadius: 8, border: "none", cursor: "pointer",
+                    padding: "5px 12px", borderRadius: 8, cursor: "pointer",
                     fontSize: 11, fontWeight: 700,
                     background: activeChart === c ? CHART_COLORS.primary : "var(--bg-secondary)",
                     color: activeChart === c ? "#0a0a14" : "var(--text-muted)",

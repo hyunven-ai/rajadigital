@@ -22,6 +22,7 @@ export async function PATCH(
     if (body.emoji           !== undefined) update.emoji            = body.emoji;
     if (body.currency        !== undefined) update.currency         = body.currency;
     if (body.currencyIcon    !== undefined) update.currency_icon    = body.currencyIcon;
+    if (body.currencyImage   !== undefined) update.currency_image   = body.currencyImage;
     if (body.extraCurrencies !== undefined) update.extra_currencies = body.extraCurrencies;
     if (body.color           !== undefined) update.color            = body.color;
     if (body.gradient        !== undefined) update.gradient         = body.gradient;

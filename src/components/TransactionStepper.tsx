@@ -64,10 +64,10 @@ export default function TransactionStepper({ currentStep, gameColor = "#f5c842" 
           style={{
             height: "100%",
             width: `${((currentStep - 1) / (STEPS.length - 1)) * 100}%`,
-            background: `linear-gradient(90deg, ${gameColor}, ${gameColor}cc)`,
+            background: "linear-gradient(90deg, #f59e0b, #d97706)",
             borderRadius: "99px",
             transition: "width 0.5s cubic-bezier(0.4, 0, 0.2, 1)",
-            boxShadow: `0 0 8px ${gameColor}60`,
+            boxShadow: "0 0 8px rgba(245,158,11,0.55)",
           }}
         />
       </div>
@@ -119,7 +119,7 @@ export default function TransactionStepper({ currentStep, gameColor = "#f5c842" 
                   background: done
                     ? "#10b981"
                     : active
-                      ? gameColor
+                      ? "linear-gradient(135deg, #f59e0b, #d97706)"
                       : "var(--bg-secondary)",
                   color: done
                     ? "#fff"
@@ -127,7 +127,7 @@ export default function TransactionStepper({ currentStep, gameColor = "#f5c842" 
                       ? "#0a0a14"
                       : "var(--text-muted)",
                   border: future ? "2px solid var(--border)" : "none",
-                  boxShadow: active ? `0 0 12px ${gameColor}60` : done ? "0 0 8px rgba(16,185,129,0.4)" : "none",
+                  boxShadow: active ? "0 0 12px rgba(245,158,11,0.6)" : done ? "0 0 8px rgba(16,185,129,0.4)" : "none",
                   transform: active ? "scale(1.15)" : "scale(1)",
                 }}
               >

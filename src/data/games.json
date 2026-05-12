@@ -13,7 +13,8 @@
       {
         "key": "b",
         "label": "B",
-        "icon": "🪙"
+        "icon": "🪙",
+        "currencyImage": "/currencies/royal-dream-b.png"
       },
       {
         "key": "m",
@@ -47,12 +48,14 @@
       {
         "key": "b",
         "label": "B",
-        "icon": "🪙"
+        "icon": "🪙",
+        "currencyImage": "/currencies/higgs-domino-b.png"
       },
       {
         "key": "m",
         "label": "M",
-        "icon": "🎰"
+        "icon": "🎰",
+        "currencyImage": "/currencies/higgs-domino-m.png"
       }
     ],
     "color": "#22c55e",
@@ -60,7 +63,8 @@
     "isActive": true,
     "isNew": true,
     "isHot": false,
-    "sortOrder": 5
+    "sortOrder": 5,
+    "currencyImage": "/currencies/higgs-domino-__primary__.png"
   },
   {
     "id": "boss-party",

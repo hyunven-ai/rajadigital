@@ -27,7 +27,7 @@ type GameForm = Omit<Game, "id"> & { extraCurrencyInput: string; extraCurrencyIc
 
 const EMPTY_FORM: GameForm = {
   slug: "", name: "", publisher: "", description: "",
-  cover: "", emoji: "🎮", currency: "Diamond", currencyIcon: "💎",
+  cover: "", emoji: "🎮", currency: "Diamond", currencyIcon: "💎", currencyImage: "",
   extraCurrencies: [], extraCurrencyInput: "", extraCurrencyIconInput: "✨",
   color: "#fbbf24", gradient: "linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%)",
   isActive: true, isHot: false, isNew: false, sortOrder: 0,
@@ -42,13 +42,17 @@ export default function AdminGamesPage() {
   const [form,         setForm]         = useState<GameForm>(EMPTY_FORM);
   const [refreshKey,   setRefreshKey]   = useState(Date.now()); // cache-bust images
 
-  // Image upload state
+  // Cover image upload state
   const [imageFile,    setImageFile]    = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string>("");
   const [uploading,    setUploading]    = useState(false);
   const [uploadDone,   setUploadDone]   = useState(false);
   const [dragOver,     setDragOver]     = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Currency icon upload state (key -> { preview, uploading, done })
+  const [currencyIconUploading, setCurrencyIconUploading] = useState<Record<string, boolean>>({});
+  const currencyIconRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   /* ── Fetch ── */
   const fetchGames = useCallback(async () => {
@@ -133,6 +137,42 @@ export default function AdminGamesPage() {
   const removeExtraCurrency = (key: string) =>
     setForm((f) => ({ ...f, extraCurrencies: (f.extraCurrencies || []).filter((c) => c.key !== key) }));
 
+  /* ── Upload Currency Icon ── */
+  const uploadCurrencyIcon = async (file: File, currencyKey: string) => {
+    if (!file.type.startsWith("image/")) { alert("File harus berupa gambar"); return; }
+    if (file.size > 500 * 1024) { alert("Ukuran file icon maksimal 500KB"); return; }
+
+    const slug = editing?.slug ?? form.name.toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9-]/g, "");
+    if (!slug) { alert("Simpan game terlebih dahulu sebelum upload icon currency"); return; }
+
+    setCurrencyIconUploading(prev => ({ ...prev, [currencyKey]: true }));
+    try {
+      const fd = new FormData();
+      fd.append("file", file);
+      fd.append("slug", slug);
+      fd.append("currencyKey", currencyKey);
+      const res  = await fetch("/api/admin/games/upload-currency", { method: "POST", body: fd });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error);
+
+      // Update form state with new image URL
+      if (currencyKey === "__primary__") {
+        setForm(f => ({ ...f, currencyImage: data.imageUrl }));
+      } else {
+        setForm(f => ({
+          ...f,
+          extraCurrencies: f.extraCurrencies.map(c =>
+            c.key === currencyKey ? { ...c, currencyImage: data.imageUrl } : c
+          ),
+        }));
+      }
+    } catch (e) {
+      alert(`Upload icon gagal: ${e instanceof Error ? e.message : "error"}`);
+    } finally {
+      setCurrencyIconUploading(prev => ({ ...prev, [currencyKey]: false }));
+    }
+  };
+
   /* ── Save ── */
   const handleSave = async () => {
     if (!form.name || !form.currency) { alert("Nama dan mata uang wajib diisi"); return; }
@@ -151,6 +191,7 @@ export default function AdminGamesPage() {
       const payload = {
         name: form.name, publisher: form.publisher, description: form.description,
         emoji: form.emoji, currency: form.currency, currencyIcon: form.currencyIcon,
+        currencyImage: form.currencyImage ?? "",
         extraCurrencies: form.extraCurrencies, color: form.color, gradient: form.gradient,
         isActive: form.isActive, isHot: form.isHot, isNew: form.isNew,
         sortOrder: form.sortOrder, cover: coverPath,
@@ -415,6 +456,64 @@ export default function AdminGamesPage() {
                     value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
                 </div>
               </div>
+
+              {/* ── Currency Icon Images ── */}
+              {(form.currency || form.extraCurrencies.length > 0) && (
+                <div>
+                  <label className="block text-xs font-semibold mb-2" style={{ color: "var(--text-secondary)" }}>
+                    🖼️ Icon Mata Uang PNG
+                    <span className="ml-1 font-normal" style={{ color: "var(--text-muted)" }}>— opsional, ganti emoji di card produk (maks 500KB)</span>
+                  </label>
+                  <div className="flex flex-col gap-2">
+                    {[
+                      { key: "__primary__", label: form.currency || "Primary", emoji: form.currencyIcon || "💸", currentImage: form.currencyImage ?? "" },
+                      ...form.extraCurrencies.map(c => ({ key: c.key, label: c.label, emoji: c.icon, currentImage: c.currencyImage ?? "" }))
+                    ].map(({ key, label, emoji: catEmoji, currentImage }) => (
+                      <div key={key} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}>
+                        {/* Preview 38x38 */}
+                        <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
+                          style={{ background: "var(--bg-card)", border: "1px dashed var(--border)" }}>
+                          {currentImage
+                            ? <img src={`${currentImage}?v=${refreshKey}`} alt={label} style={{ width: 38, height: 38, objectFit: "contain" }} />
+                            : <span style={{ fontSize: 20 }}>{catEmoji}</span>}
+                        </div>
+                        {/* Info */}
+                        <div className="flex-1 min-w-0">
+                          <div className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{label}</div>
+                          <div className="text-xs truncate mt-0.5" style={{ color: currentImage ? "#10b981" : "var(--text-muted)" }}>
+                            {currentImage || "Pakai emoji"}
+                          </div>
+                        </div>
+                        {/* Buttons */}
+                        <div className="flex items-center gap-1.5 flex-shrink-0">
+                          {currentImage && (
+                            <button type="button"
+                              onClick={() => {
+                                if (key === "__primary__") setForm(f => ({ ...f, currencyImage: "" }));
+                                else setForm(f => ({ ...f, extraCurrencies: f.extraCurrencies.map(c => c.key === key ? { ...c, currencyImage: "" } : c) }));
+                              }}
+                              className="w-7 h-7 rounded-lg flex items-center justify-center"
+                              style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+                              <X size={12} />
+                            </button>
+                          )}
+                          <label htmlFor={`currency-img-${key}`}
+                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer hover:opacity-80"
+                            style={{ background: "rgba(251,191,36,0.15)", color: "#f59e0b", border: "1px solid rgba(251,191,36,0.3)" }}>
+                            {currencyIconUploading[key] ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                            Upload PNG
+                          </label>
+                          <input id={`currency-img-${key}`} type="file" accept="image/png,image/jpeg,image/jpg,image/webp"
+                            className="hidden"
+                            ref={el => { currencyIconRefs.current[key] = el; }}
+                            onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCurrencyIcon(f, key); e.target.value = ""; }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
 
               <div>
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Publisher / Developer</label>

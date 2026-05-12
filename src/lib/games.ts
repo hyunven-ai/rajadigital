@@ -8,6 +8,7 @@ export interface GameCurrency {
   key: string;
   label: string;
   icon: string;
+  currencyImage?: string; // URL gambar PNG opsional pengganti emoji
 }
 
 export interface Game {
@@ -20,6 +21,7 @@ export interface Game {
   emoji:            string;
   currency:         string;
   currencyIcon:     string;
+  currencyImage?:   string; // URL gambar PNG untuk currency utama
   extraCurrencies:  GameCurrency[];
   color:            string;
   gradient:         string;
@@ -42,8 +44,9 @@ export function getGame(slug: string): Game | undefined {
 }
 
 // All categories a game supports (primary + extras)
-export function getGameCategories(game: Game): { key: string; label: string; icon: string }[] {
-  const primary = { key: game.currency.toLowerCase(), label: game.currency, icon: game.currencyIcon };
-  const extras  = (game.extraCurrencies ?? []).map((c) => ({ key: c.key, label: c.label, icon: c.icon }));
+export function getGameCategories(game: Game): { key: string; label: string; icon: string; currencyImage?: string }[] {
+  const primary = { key: game.currency.toLowerCase(), label: game.currency, icon: game.currencyIcon, currencyImage: game.currencyImage };
+  const extras  = (game.extraCurrencies ?? []).map((c) => ({ key: c.key, label: c.label, icon: c.icon, currencyImage: c.currencyImage }));
   return [primary, ...extras];
 }
+

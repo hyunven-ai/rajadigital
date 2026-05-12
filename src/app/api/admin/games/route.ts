@@ -15,6 +15,7 @@ function rowToGame(row: Record<string, unknown>) {
     emoji:           row.emoji ?? "🎮",
     currency:        row.currency,
     currencyIcon:    row.currency_icon ?? "💎",
+    currencyImage:   row.currency_image ?? "",
     extraCurrencies: row.extra_currencies ?? [],
     color:           row.color ?? "#fbbf24",
     gradient:        row.gradient ?? "linear-gradient(135deg,#7c3aed,#4c1d95)",

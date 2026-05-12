@@ -84,9 +84,13 @@ export default function GamePage() {
   }
   if (!game) return null;
 
-  const filteredProducts = products.filter(
-    (p) => p.category?.toLowerCase() === activeCategory?.toLowerCase() && p.is_active
-  );
+  const ALL_CATEGORIES = "__all__";
+
+  const filteredProducts = activeCategory === ALL_CATEGORIES
+    ? products.filter((p) => p.is_active)
+    : products.filter(
+        (p) => p.category?.toLowerCase() === activeCategory?.toLowerCase() && p.is_active
+      );
 
   /* ── Kategori tabs — urutan mengikuti konfigurasi game dari admin panel ── */
   const availableCategories = (() => {
@@ -116,17 +120,14 @@ export default function GamePage() {
     });
   })();
 
-  /* ── Resolve icon per-product based on its category ── */
-  const getProductIcon = (product: Product): string => {
+  /* ── Resolve icon per-product: returns emoji string (fallback) ── */
+  const getProductIconEmoji = (product: Product): string => {
     const catLower = product.category?.toLowerCase() ?? "";
-    // Match currency utama game
     if (catLower === game.currency?.toLowerCase()) return game.currencyIcon || "💎";
-    // Match extraCurrencies game (dari admin panel)
     const extra = game.extraCurrencies?.find(
       (c: any) => c.key === catLower || c.label?.toLowerCase() === catLower
     );
     if (extra) return extra.icon;
-    // Fallback map
     const CAT_MAP: Record<string, string> = {
       diamond: "💎", uc: "🪙", koin: "🪙", coin: "🪙",
       chip: "🎰", gold: "🥇", voucher: "🎫",
@@ -134,6 +135,34 @@ export default function GamePage() {
     };
     return CAT_MAP[catLower] ?? game.currencyIcon ?? "📦";
   };
+
+  /* ── Resolve icon per-product: returns PNG URL if configured, else null ── */
+  const getProductIconImage = (product: Product): string | null => {
+    const catLower = product.category?.toLowerCase() ?? "";
+    if (catLower === game.currency?.toLowerCase()) return (game as any).currencyImage || null;
+    const extra = game.extraCurrencies?.find(
+      (c: any) => c.key === catLower || c.label?.toLowerCase() === catLower
+    );
+    return extra?.currencyImage || null;
+  };
+
+  /* ── Render icon: PNG jika ada, fallback emoji ── */
+  const ProductIcon = ({ product, size = 22 }: { product: Product; size?: number }) => {
+    const imgUrl = getProductIconImage(product);
+    if (imgUrl) {
+      return (
+        <img
+          src={`${imgUrl}?v=1`}
+          alt={product.category ?? "icon"}
+          width={size}
+          height={size}
+          style={{ width: size, height: size, objectFit: "contain", display: "block" }}
+        />
+      );
+    }
+    return <span style={{ fontSize: size, lineHeight: 1 }}>{getProductIconEmoji(product)}</span>;
+  };
+
 
   /* ── Order handlers ── */
   const handleOrder = () => {
@@ -261,7 +290,7 @@ export default function GamePage() {
               <div className="flex items-center gap-2 mt-3">
                 <div className="flex">
                   {Array.from({ length: 5 }).map((_, i) => (
-                    <Star key={i} size={14} fill={i < 4 ? game.color : "none"} style={{ color: game.color }} />
+                    <Star key={i} size={14} fill={i < 4 ? "#f59e0b" : "none"} style={{ color: "#f59e0b" }} />
                   ))}
                 </div>
                 <span className="text-xs" style={{ color: "rgba(255,255,255,0.6)" }}>4.9 (2.4rb ulasan)</span>
@@ -274,7 +303,7 @@ export default function GamePage() {
                 id="btn-topup-now"
                 onClick={() => { setShowOrder(true); setTimeout(() => { document.getElementById("order-section")?.scrollIntoView({ behavior: "smooth" }); }, 100); }}
                 className="flex items-center gap-2 px-6 py-3 rounded-xl font-bold text-sm transition-all hover:opacity-90"
-                style={{ background: game.color, color: "#0f172a", boxShadow: `0 4px 20px ${game.color}40` }}
+                style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#0f172a", boxShadow: "0 4px 20px rgba(245,158,11,0.45)" }}
               >
                 <Zap size={16} />
                 Lihat Harga &amp; Top Up
@@ -294,7 +323,7 @@ export default function GamePage() {
             <button
               onClick={() => { setShowOrder(true); }}
               className="flex-1 flex items-center justify-center gap-2 py-3 rounded-xl font-bold text-sm"
-              style={{ background: game.color, color: "#0f172a" }}
+              style={{ background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#0f172a", boxShadow: "0 4px 20px rgba(245,158,11,0.4)" }}
             >
               <Zap size={16} />
               Lihat Harga &amp; Top Up
@@ -323,10 +352,59 @@ export default function GamePage() {
             </button>
           </div>
 
-          {/* ── STEP 2: Pilih Paket ── */}
+          {/* ── STEP 2: Isi Data & Pilih Paket ── */}
           <div>
 
-          {/* Pilih Nominal Top Up */}
+          {/* ── Formulir Isi Data (ditampilkan PERTAMA) ── */}
+          <div className="mb-6">
+            <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
+              <span style={{ fontSize: "18px" }}>📝</span> Isi Data Kamu
+            </h3>
+
+            {/* Game ID */}
+            <div className="mb-4">
+              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--text-secondary)" }}>
+                <User size={14} className="inline mr-1" /> Game ID
+              </label>
+              <input
+                id="input-game-id" type="text" className="input-styled"
+                placeholder="Contoh: 123456789"
+                value={gameId} onChange={(e) => setGameId(e.target.value)}
+              />
+              <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>
+                Temukan Game ID di dalam game → Profil → ID Pengguna
+              </p>
+            </div>
+
+            {/* Username */}
+            <div className="mb-4">
+              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--text-secondary)" }}>
+                <User size={14} className="inline mr-1" /> Nama Pengguna/Game
+              </label>
+              <input
+                id="input-username" type="text" className="input-styled"
+                placeholder="Contoh: RajaGamer123"
+                value={username} onChange={(e) => setUsername(e.target.value)}
+              />
+            </div>
+
+            {/* WhatsApp */}
+            <div className="mb-0">
+              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--text-secondary)" }}>
+                <Phone size={14} className="inline mr-1" /> Nomor WhatsApp
+              </label>
+              <input
+                id="input-whatsapp" type="tel" className="input-styled"
+                placeholder="Contoh: 08123456789"
+                value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)}
+              />
+            </div>
+          </div>
+
+          {/* ── Separator ── */}
+          <div style={{ height: "1px", background: "var(--border)", margin: "24px 0" }} />
+
+          {/* ── Pilih Nominal Top Up (ditampilkan KEDUA) ── */}
           <div className="mb-6">
             <div className="flex items-center justify-between mb-3">
               <label className="block text-sm font-semibold" style={{ color: "var(--text-secondary)" }}>
@@ -349,7 +427,7 @@ export default function GamePage() {
                   className="w-8 h-8 rounded-md flex items-center justify-center transition-all"
                   style={
                     viewMode === "grid"
-                      ? { background: game.color, color: "#0f172a" }
+                      ? { background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#0f172a" }
                       : { color: "var(--text-muted)" }
                   }
                 >
@@ -362,7 +440,7 @@ export default function GamePage() {
                   className="w-8 h-8 rounded-md flex items-center justify-center transition-all"
                   style={
                     viewMode === "list"
-                      ? { background: game.color, color: "#0f172a" }
+                      ? { background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#0f172a" }
                       : { color: "var(--text-muted)" }
                   }
                 >
@@ -371,9 +449,24 @@ export default function GamePage() {
               </div>
             </div>
 
-            {/* Category tabs */}
+            {/* Category tabs — hanya tampil jika ada > 1 kategori */}
             {availableCategories.length > 1 && (
               <div className="flex flex-wrap gap-3 mb-4">
+                {/* Tombol SEMUA */}
+                <button
+                  key="__all__"
+                  id="category-semua"
+                  onClick={() => { setActiveCategory(ALL_CATEGORIES); setSelectedProduct(null); }}
+                  className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all"
+                  style={
+                    activeCategory === ALL_CATEGORIES
+                      ? { background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#0f172a", boxShadow: "0 4px 15px rgba(245,158,11,0.45)" }
+                      : { background: "var(--bg-secondary)", color: "var(--text-secondary)", border: "1px solid var(--border)" }
+                  }
+                >
+                  🎯 Semua
+                </button>
+
                 {availableCategories.map((cat) => {
                   const catLower = cat?.toLowerCase() ?? "";
                   let icon = "📦";
@@ -418,7 +511,7 @@ export default function GamePage() {
                       onClick={() => { setActiveCategory(cat); setSelectedProduct(null); }}
                       className="flex items-center gap-2 px-5 py-3 rounded-xl font-semibold text-sm transition-all"
                       style={activeCategory?.toLowerCase() === catLower
-                        ? { background: game.color, color: "#0f172a", boxShadow: `0 4px 15px ${game.color}40` }
+                        ? { background: "linear-gradient(135deg, #f59e0b, #d97706)", color: "#0f172a", boxShadow: "0 4px 15px rgba(245,158,11,0.45)" }
                         : { background: "var(--bg-secondary)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}
                     >
                       {icon} {label}
@@ -627,8 +720,8 @@ export default function GamePage() {
 
                           {/* Icon + Price row */}
                           <div style={{ display: "flex", alignItems: "center", gap: "6px", minWidth: 0 }}>
-                            <div style={{ fontSize: "22px", lineHeight: 1, flexShrink: 0 }}>
-                              {getProductIcon(product)}
+                            <div style={{ flexShrink: 0, width: 38, height: 38, display: "flex", alignItems: "center", justifyContent: "center" }}>
+                              <ProductIcon product={product} size={38} />
                             </div>
                             <div
                               style={{
@@ -723,7 +816,7 @@ export default function GamePage() {
                           border: `1.5px solid ${isSelected ? game.color + "50" : "var(--border)"}`,
                         }}
                       >
-                        {getProductIcon(product)}
+                        <ProductIcon product={product} size={38} />
                       </div>
                       {/* Name + sub */}
                       <div style={{ flex: 1, minWidth: 0 }}>
@@ -767,12 +860,8 @@ export default function GamePage() {
           {/* ── Separator ── */}
           <div style={{ height: "1px", background: "var(--border)", margin: "24px 0" }} />
 
-          {/* ── Formulir Isi Data ── */}
+          {/* ── Paket Dipilih (summary) + Tombol Konfirmasi ── */}
           <div>
-            <h3 className="text-sm font-bold mb-4 flex items-center gap-2" style={{ color: "var(--text-secondary)" }}>
-              <span style={{ fontSize: "18px" }}>📝</span> Isi Data Kamu
-            </h3>
-
             {/* Paket dipilih (summary) */}
             {selectedProduct && (
               <div
@@ -789,66 +878,31 @@ export default function GamePage() {
               </div>
             )}
 
-            {/* Game ID */}
-            <div className="mb-4">
-              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--text-secondary)" }}>
-                <User size={14} className="inline mr-1" /> Game ID
-              </label>
-              <input
-                id="input-game-id" type="text" className="input-styled"
-                placeholder="Contoh: 123456789"
-                value={gameId} onChange={(e) => setGameId(e.target.value)}
-              />
-              <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>
-                Temukan Game ID di dalam game → Profil → ID Pengguna
-              </p>
-            </div>
-
-            {/* Username */}
-            <div className="mb-4">
-              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--text-secondary)" }}>
-                <User size={14} className="inline mr-1" /> Nama Pengguna/Game
-              </label>
-              <input
-                id="input-username" type="text" className="input-styled"
-                placeholder="Contoh: RajaGamer123"
-                value={username} onChange={(e) => setUsername(e.target.value)}
-              />
-            </div>
-
-            {/* WhatsApp */}
-            <div className="mb-6">
-              <label className="block text-sm font-semibold mb-2" style={{ color: "var(--text-secondary)" }}>
-                <Phone size={14} className="inline mr-1" /> Nomor WhatsApp
-              </label>
-              <input
-                id="input-whatsapp" type="tel" className="input-styled"
-                placeholder="Contoh: 08123456789"
-                value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)}
-              />
-            </div>
-
             {/* Tombol Konfirmasi */}
             <button
               id="btn-order-now"
               onClick={() => { setSuccessInvoiceId(null); handleOrder(); }}
-              disabled={isSubmitting || !selectedProduct}
+              disabled={isSubmitting || !gameId.trim() || !username.trim() || !whatsapp.trim() || !selectedProduct}
               className="w-full flex items-center justify-center gap-2 text-base font-bold py-4 rounded-2xl transition-all hover:opacity-90"
               style={{
-                background: selectedProduct
+                background: (gameId.trim() && username.trim() && whatsapp.trim() && selectedProduct)
                   ? `linear-gradient(135deg, ${game.color}, ${game.color}cc)`
                   : "var(--bg-secondary)",
-                color: selectedProduct ? "#0f172a" : "var(--text-muted)",
-                boxShadow: selectedProduct ? `0 4px 20px ${game.color}30` : "none",
-                cursor: selectedProduct ? "pointer" : "not-allowed",
+                color: (gameId.trim() && username.trim() && whatsapp.trim() && selectedProduct) ? "#0f172a" : "var(--text-muted)",
+                boxShadow: (gameId.trim() && username.trim() && whatsapp.trim() && selectedProduct) ? `0 4px 20px ${game.color}30` : "none",
+                cursor: (gameId.trim() && username.trim() && whatsapp.trim() && selectedProduct) ? "pointer" : "not-allowed",
               }}
             >
               {isSubmitting
                 ? <Loader2 size={18} className="animate-spin" />
                 : <ChevronRight size={18} />}
-              {selectedProduct ? "Cek & Konfirmasi Pesanan" : "Pilih paket terlebih dahulu"}
+              {!gameId.trim() || !username.trim() || !whatsapp.trim()
+                ? "Isi data kamu terlebih dahulu"
+                : !selectedProduct
+                  ? "Pilih paket terlebih dahulu"
+                  : "Cek & Konfirmasi Pesanan"}
             </button>
-          </div> {/* end formulir */}
+          </div> {/* end submit */}
 
           </div> {/* end step wrapper */}
 

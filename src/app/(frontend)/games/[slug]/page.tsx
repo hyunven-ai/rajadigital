@@ -15,6 +15,10 @@ import { formatCurrency, generateInvoiceId, formatWhatsApp, buildWhatsAppMessage
 import { useGame } from "@/hooks/useGames";
 import type { Product } from "@/types";
 
+// Konstanta stabil untuk cache-bust gambar — dihitung sekali saat module load
+// Mencegah gambar berkedip setiap re-render komponen
+const IMG_VERSION = Date.now();
+
 export default function GamePage() {
   const params = useParams();
   const slug   = params?.slug as string;
@@ -60,6 +64,26 @@ export default function GamePage() {
   }, [game]);
 
   useEffect(() => { fetchProducts(); }, [fetchProducts]);
+
+  /* ── Auto-advance: buka modal konfirmasi otomatis saat semua field terisi ──
+     HARUS di sini — sebelum conditional return, sesuai Rules of Hooks          */
+  useEffect(() => {
+    if (
+      gameId.trim() &&
+      username.trim() &&
+      whatsapp.trim() &&
+      selectedProduct &&
+      !modalOpen &&
+      !successInvoiceId
+    ) {
+      const timer = setTimeout(() => {
+        setSuccessInvoiceId(null);
+        setModalOpen(true);
+      }, 300);
+      return () => clearTimeout(timer);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProduct]); // hanya trigger saat produk dipilih
 
   if (gameLoading) {
     return (
@@ -139,7 +163,7 @@ export default function GamePage() {
     if (imgUrl) {
       return (
         <img
-          src={`${imgUrl}?v=${Date.now()}`}
+          src={`${imgUrl}?v=${IMG_VERSION}`}
           alt={product.category ?? "icon"}
           width={size}
           height={size}
@@ -159,6 +183,7 @@ export default function GamePage() {
     if (!selectedProduct)  { alert("Pilih paket terlebih dahulu!"); return; }
     setModalOpen(true);
   };
+
 
   const handleConfirm = async (paidViaQris: boolean = false, paymentProof?: File | null) => {
     if (!selectedProduct) return;
@@ -881,7 +906,7 @@ export default function GamePage() {
               </div>
             )}
 
-            {/* Tombol Konfirmasi */}
+            {/* Tombol Konfirmasi — fallback manual jika auto-advance tidak terpicu */}
             <button
               id="btn-order-now"
               onClick={() => { setSuccessInvoiceId(null); handleOrder(); }}

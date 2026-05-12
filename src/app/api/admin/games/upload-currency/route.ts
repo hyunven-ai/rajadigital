@@ -1,6 +1,4 @@
 import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
 import { createServerSupabase } from "@/lib/supabase";
 
 // POST /api/admin/games/upload-currency
@@ -31,51 +29,37 @@ export async function POST(req: NextRequest) {
 
     const ext      = file.type === "image/webp" ? "webp" : file.type === "image/png" ? "png" : "jpg";
     const safeKey  = currencyKey.replace(/[^a-z0-9_-]/g, "");
-    const filename = `${slug}-${safeKey}.${ext}`;
-    const destDir  = path.join(process.cwd(), "public", "currencies");
-    const destPath = path.join(destDir, filename);
+    const filename = `currencies/${slug}-${safeKey}.${ext}`;
 
-    // Ensure directory exists
-    await fs.mkdir(destDir, { recursive: true });
-
-    // Write file
+    // Upload to Supabase Storage
+    const db     = createServerSupabase();
     const buffer = Buffer.from(await file.arrayBuffer());
-    await fs.writeFile(destPath, buffer);
 
-    const imageUrl     = `/currencies/${filename}`;
-    const imageBustUrl = `${imageUrl}?v=${Date.now()}`;
+    const { error: uploadError } = await db.storage
+      .from("game-assets")
+      .upload(filename, buffer, {
+        contentType: file.type,
+        upsert: true,
+      });
 
-    // Update games.json
-    const gamesFile = path.join(process.cwd(), "src/data/games.json");
+    if (uploadError) {
+      console.error("Supabase storage upload error:", uploadError);
+      return NextResponse.json({ error: "Gagal mengupload ke storage: " + uploadError.message }, { status: 500 });
+    }
+
+    // Get public URL
+    const { data: urlData } = db.storage.from("game-assets").getPublicUrl(filename);
+    const imageUrl = urlData.publicUrl;
+
+    // Update Supabase DB
     try {
-      const raw   = await fs.readFile(gamesFile, "utf-8");
-      const games = JSON.parse(raw) as Record<string, unknown>[];
-      const idx   = games.findIndex((g) => g.slug === slug || g.id === slug);
-      if (idx !== -1) {
-        if (currencyKey === "__primary__") {
-          games[idx] = { ...games[idx], currencyImage: imageUrl };
-        } else {
-          const extras = (games[idx].extraCurrencies as Record<string, unknown>[] | undefined) ?? [];
-          const extraIdx = extras.findIndex((e) => e.key === currencyKey);
-          if (extraIdx !== -1) {
-            extras[extraIdx] = { ...extras[extraIdx], currencyImage: imageUrl };
-            games[idx] = { ...games[idx], extraCurrencies: extras };
-          }
-        }
-        await fs.writeFile(gamesFile, JSON.stringify(games, null, 2), "utf-8");
-      }
-    } catch { /* ignore games.json update errors */ }
-
-    // Update Supabase
-    try {
-      const db = createServerSupabase();
       if (currencyKey === "__primary__") {
         await db.from("games").update({ currency_image: imageUrl }).eq("slug", slug);
       } else {
         // Fetch current extra_currencies, update the matching key, save back
         const { data } = await db.from("games").select("extra_currencies").eq("slug", slug).single();
         if (data?.extra_currencies) {
-          const extras = data.extra_currencies as Record<string, unknown>[];
+          const extras   = data.extra_currencies as Record<string, unknown>[];
           const extraIdx = extras.findIndex((e) => e.key === currencyKey);
           if (extraIdx !== -1) {
             extras[extraIdx] = { ...extras[extraIdx], currencyImage: imageUrl };
@@ -83,12 +67,12 @@ export async function POST(req: NextRequest) {
           }
         }
       }
-    } catch { /* ignore Supabase update errors */ }
+    } catch { /* ignore DB update errors */ }
 
     return NextResponse.json({
       success: true,
       imageUrl,
-      imageBustUrl,
+      imageBustUrl: `${imageUrl}?v=${Date.now()}`,
       filename,
     });
   } catch (err) {

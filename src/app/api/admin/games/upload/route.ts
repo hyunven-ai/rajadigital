@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { promises as fs } from "fs";
-import path from "path";
+import { createServerSupabase } from "@/lib/supabase";
 
 // POST /api/admin/games/upload
 // Body: FormData { file: File, slug: string }
@@ -25,37 +24,38 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Ukuran file maksimal 2MB" }, { status: 400 });
     }
 
-    const ext     = file.type === "image/webp" ? "webp" : file.type === "image/png" ? "png" : "jpg";
-    const filename = `${slug}.${ext}`;
-    const destDir  = path.join(process.cwd(), "public", "games");
-    const destPath = path.join(destDir, filename);
+    const ext      = file.type === "image/webp" ? "webp" : file.type === "image/png" ? "png" : "jpg";
+    const filename = `games/${slug}.${ext}`;
 
-    // Ensure directory exists
-    await fs.mkdir(destDir, { recursive: true });
-
-    // Convert to buffer and write
+    // Upload to Supabase Storage
+    const db     = createServerSupabase();
     const buffer = Buffer.from(await file.arrayBuffer());
-    await fs.writeFile(destPath, buffer);
 
-    // Also update cover path in games.json if the game exists
-    const gamesFile = path.join(process.cwd(), "src/data/games.json");
+    const { error: uploadError } = await db.storage
+      .from("game-assets")
+      .upload(filename, buffer, {
+        contentType: file.type,
+        upsert: true,
+      });
+
+    if (uploadError) {
+      console.error("Supabase storage upload error:", uploadError);
+      return NextResponse.json({ error: "Gagal mengupload ke storage: " + uploadError.message }, { status: 500 });
+    }
+
+    // Get public URL
+    const { data: urlData } = db.storage.from("game-assets").getPublicUrl(filename);
+    const coverUrl = urlData.publicUrl;
+
+    // Update Supabase DB
     try {
-      const raw   = await fs.readFile(gamesFile, "utf-8");
-      const games = JSON.parse(raw) as Record<string, unknown>[];
-      const idx   = games.findIndex((g) => g.slug === slug || g.id === slug);
-      if (idx !== -1) {
-        // Simpan path clean (tanpa ?v=) ke JSON, cache-busting hanya di response
-        games[idx] = { ...games[idx], cover: `/games/${filename}` };
-        await fs.writeFile(gamesFile, JSON.stringify(games, null, 2), "utf-8");
-      }
-    } catch { /* ignore if games.json update fails */ }
-
-    const coverUrl = `/games/${filename}?v=${Date.now()}`;
+      await db.from("games").update({ cover: coverUrl }).eq("slug", slug);
+    } catch { /* ignore DB update errors, cover will be saved during handleSave */ }
 
     return NextResponse.json({
       success: true,
-      cover: `/games/${filename}`,   // path clean (disimpan ke DB)
-      coverBust: coverUrl,           // dengan cache-busting (untuk preview)
+      cover: coverUrl,
+      coverBust: `${coverUrl}?v=${Date.now()}`,
       filename,
     });
   } catch (err) {

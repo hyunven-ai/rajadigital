@@ -367,9 +367,11 @@ export default function GamePage() {
                 <User size={14} className="inline mr-1" /> Game ID
               </label>
               <input
-                id="input-game-id" type="text" className="input-styled"
+                id="input-game-id" type="text" inputMode="numeric" pattern="[0-9]*"
+                className="input-styled"
                 placeholder="Contoh: 123456789"
-                value={gameId} onChange={(e) => setGameId(e.target.value)}
+                value={gameId}
+                onChange={(e) => setGameId(e.target.value.replace(/\D/g, ""))}
               />
               <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>
                 Temukan Game ID di dalam game → Profil → ID Pengguna
@@ -394,9 +396,11 @@ export default function GamePage() {
                 <Phone size={14} className="inline mr-1" /> Nomor WhatsApp
               </label>
               <input
-                id="input-whatsapp" type="tel" className="input-styled"
+                id="input-whatsapp" type="tel" inputMode="numeric" pattern="[0-9]*"
+                className="input-styled"
                 placeholder="Contoh: 08123456789"
-                value={whatsapp} onChange={(e) => setWhatsapp(e.target.value)}
+                value={whatsapp}
+                onChange={(e) => setWhatsapp(e.target.value.replace(/\D/g, ""))}
               />
             </div>
           </div>

@@ -52,6 +52,8 @@ export default function AdminGamesPage() {
 
   // Currency icon upload state (key -> { preview, uploading, done })
   const [currencyIconUploading, setCurrencyIconUploading] = useState<Record<string, boolean>>({});
+  const [currencyIconModes,     setCurrencyIconModes]     = useState<Record<string, "file" | "url">>({});
+  const [currencyIconUrls,      setCurrencyIconUrls]      = useState<Record<string, string>>({});
   const currencyIconRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   /* ── Fetch ── */
@@ -170,6 +172,46 @@ export default function AdminGamesPage() {
       alert(`Upload icon gagal: ${e instanceof Error ? e.message : "error"}`);
     } finally {
       setCurrencyIconUploading(prev => ({ ...prev, [currencyKey]: false }));
+    }
+  };
+
+  /* ── Save Currency Icon via URL (langsung) ── */
+  const saveCurrencyIconUrl = async (url: string, currencyKey: string) => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
+
+    // Update form state
+    if (currencyKey === "__primary__") {
+      setForm(f => ({ ...f, currencyImage: trimmed }));
+    } else {
+      setForm(f => ({
+        ...f,
+        extraCurrencies: f.extraCurrencies.map(c =>
+          c.key === currencyKey ? { ...c, currencyImage: trimmed } : c
+        ),
+      }));
+    }
+
+    // Persist ke DB jika sedang edit game yang sudah ada
+    const gameId = (editing as any)?.id;
+    if (gameId) {
+      try {
+        if (currencyKey === "__primary__") {
+          await fetch(`/api/admin/games/${gameId}`, {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ currencyImage: trimmed }),
+          });
+        } else {
+          const updatedExtras = form.extraCurrencies.map(c =>
+            c.key === currencyKey ? { ...c, currencyImage: trimmed } : c
+          );
+          await fetch(`/api/admin/games/${gameId}`, {
+            method: "PATCH", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ extraCurrencies: updatedExtras }),
+          });
+        }
+        setRefreshKey(Date.now()); // cache bust preview
+      } catch { /* silent — tersimpan saat Simpan Game */ }
     }
   };
 
@@ -468,49 +510,95 @@ export default function AdminGamesPage() {
                     {[
                       { key: "__primary__", label: form.currency || "Primary", emoji: form.currencyIcon || "💸", currentImage: form.currencyImage ?? "" },
                       ...form.extraCurrencies.map(c => ({ key: c.key, label: c.label, emoji: c.icon, currentImage: c.currencyImage ?? "" }))
-                    ].map(({ key, label, emoji: catEmoji, currentImage }) => (
-                      <div key={key} className="flex items-center gap-3 p-2.5 rounded-xl" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}>
-                        {/* Preview 38x38 */}
-                        <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
-                          style={{ background: "var(--bg-card)", border: "1px dashed var(--border)" }}>
-                          {currentImage
-                            ? <img src={`${currentImage}?v=${refreshKey}`} alt={label} style={{ width: 38, height: 38, objectFit: "contain" }} />
-                            : <span style={{ fontSize: 20 }}>{catEmoji}</span>}
-                        </div>
-                        {/* Info */}
-                        <div className="flex-1 min-w-0">
-                          <div className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{label}</div>
-                          <div className="text-xs truncate mt-0.5" style={{ color: currentImage ? "#10b981" : "var(--text-muted)" }}>
-                            {currentImage || "Pakai emoji"}
+                    ].map(({ key, label, emoji: catEmoji, currentImage }) => {
+                      const mode = currencyIconModes[key] ?? "file";
+                      const urlInput = currencyIconUrls[key] ?? "";
+                      return (
+                        <div key={key} className="rounded-xl overflow-hidden" style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}>
+                          {/* Row utama */}
+                          <div className="flex items-center gap-3 p-2.5">
+                            {/* Preview 38x38 */}
+                            <div className="w-10 h-10 rounded-lg overflow-hidden flex items-center justify-center flex-shrink-0"
+                              style={{ background: "var(--bg-card)", border: "1px dashed var(--border)" }}>
+                              {currentImage
+                                ? <img src={`${currentImage}?v=${refreshKey}`} alt={label}
+                                    style={{ width: 38, height: 38, objectFit: "contain" }}
+                                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none"; }} />
+                                : <span style={{ fontSize: 20 }}>{catEmoji}</span>}
+                            </div>
+                            {/* Info */}
+                            <div className="flex-1 min-w-0">
+                              <div className="text-xs font-semibold" style={{ color: "var(--text-primary)" }}>{label}</div>
+                              <div className="text-xs truncate mt-0.5" style={{ color: currentImage ? "#10b981" : "var(--text-muted)" }}>
+                                {currentImage || "Pakai emoji"}
+                              </div>
+                            </div>
+                            {/* Action buttons */}
+                            <div className="flex items-center gap-1.5 flex-shrink-0">
+                              {currentImage && (
+                                <button type="button"
+                                  onClick={() => {
+                                    if (key === "__primary__") setForm(f => ({ ...f, currencyImage: "" }));
+                                    else setForm(f => ({ ...f, extraCurrencies: f.extraCurrencies.map(c => c.key === key ? { ...c, currencyImage: "" } : c) }));
+                                    setCurrencyIconUrls(prev => ({ ...prev, [key]: "" }));
+                                  }}
+                                  className="w-7 h-7 rounded-lg flex items-center justify-center"
+                                  style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+                                  <X size={12} />
+                                </button>
+                              )}
+                              {/* Tab toggle */}
+                              <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid rgba(251,191,36,0.3)" }}>
+                                {(["file", "url"] as const).map(m => (
+                                  <button key={m} type="button"
+                                    onClick={() => setCurrencyIconModes(prev => ({ ...prev, [key]: m }))}
+                                    className="px-2 py-1 text-xs font-semibold transition-all"
+                                    style={mode === m
+                                      ? { background: "rgba(251,191,36,0.25)", color: "#f59e0b" }
+                                      : { background: "transparent", color: "var(--text-muted)" }}>
+                                    {m === "file" ? "📁" : "🔗"}
+                                  </button>
+                                ))}
+                              </div>
+                              {/* File upload button */}
+                              {mode === "file" && (
+                                <label htmlFor={`currency-img-${key}`}
+                                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer hover:opacity-80"
+                                  style={{ background: "rgba(251,191,36,0.15)", color: "#f59e0b", border: "1px solid rgba(251,191,36,0.3)" }}>
+                                  {currencyIconUploading[key] ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                                  Upload PNG
+                                </label>
+                              )}
+                              <input id={`currency-img-${key}`} type="file" accept="image/png,image/jpeg,image/jpg,image/webp"
+                                className="hidden"
+                                ref={el => { if (currencyIconRefs.current) currencyIconRefs.current[key] = el; }}
+                                onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCurrencyIcon(f, key); e.target.value = ""; }}
+                              />
+                            </div>
                           </div>
-                        </div>
-                        {/* Buttons */}
-                        <div className="flex items-center gap-1.5 flex-shrink-0">
-                          {currentImage && (
-                            <button type="button"
-                              onClick={() => {
-                                if (key === "__primary__") setForm(f => ({ ...f, currencyImage: "" }));
-                                else setForm(f => ({ ...f, extraCurrencies: f.extraCurrencies.map(c => c.key === key ? { ...c, currencyImage: "" } : c) }));
-                              }}
-                              className="w-7 h-7 rounded-lg flex items-center justify-center"
-                              style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
-                              <X size={12} />
-                            </button>
+                          {/* URL input row — only shown when url mode */}
+                          {mode === "url" && (
+                            <div className="px-3 pb-3 flex items-center gap-2">
+                              <input
+                                type="url"
+                                className="input-styled text-xs flex-1"
+                                placeholder="https://example.com/icon.png"
+                                value={urlInput}
+                                onChange={(e) => setCurrencyIconUrls(prev => ({ ...prev, [key]: e.target.value }))}
+                                onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); saveCurrencyIconUrl(urlInput, key); } }}
+                              />
+                              <button type="button"
+                                onClick={() => saveCurrencyIconUrl(urlInput, key)}
+                                disabled={!urlInput.trim()}
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold hover:opacity-80 disabled:opacity-40"
+                                style={{ background: "rgba(251,191,36,0.2)", color: "#f59e0b", border: "1px solid rgba(251,191,36,0.3)", flexShrink: 0 }}>
+                                <CheckCircle size={12} /> Terapkan
+                              </button>
+                            </div>
                           )}
-                          <label htmlFor={`currency-img-${key}`}
-                            className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer hover:opacity-80"
-                            style={{ background: "rgba(251,191,36,0.15)", color: "#f59e0b", border: "1px solid rgba(251,191,36,0.3)" }}>
-                            {currencyIconUploading[key] ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
-                            Upload PNG
-                          </label>
-                          <input id={`currency-img-${key}`} type="file" accept="image/png,image/jpeg,image/jpg,image/webp"
-                            className="hidden"
-                            ref={el => { currencyIconRefs.current[key] = el; }}
-                            onChange={(e) => { const f = e.target.files?.[0]; if (f) uploadCurrencyIcon(f, key); e.target.value = ""; }}
-                          />
                         </div>
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 </div>
               )}

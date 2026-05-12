@@ -27,7 +27,7 @@ export default function GamePage() {
 
   const [products,        setProducts]        = useState<Product[]>([]);
   const [loadingProducts, setLoadingProducts] = useState(true);
-  const [activeCategory,  setActiveCategory]  = useState<string>(""); // dinamis — set setelah produk dimuat
+  const [activeCategory,  setActiveCategory]  = useState<string>("__all__"); // default: tampilkan semua paket
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [specialValues,   setSpecialValues]   = useState<Record<string, number>>({});
   const [gameId,          setGameId]          = useState("");
@@ -52,19 +52,6 @@ export default function GamePage() {
       // Sort by price ascending (cheapest first)
       const list: Product[] = (data.products ?? []).sort((a: Product, b: Product) => (a.price ?? 0) - (b.price ?? 0));
       setProducts(list);
-      // Auto-set kategori aktif ke kategori PERTAMA dari konfigurasi game (bukan dari produk)
-      if (list.length > 0) {
-        // Urutan kategori mengikuti konfigurasi game dari admin panel
-        const gameCats = [
-          game.currency?.toLowerCase(),
-          ...(game.extraCurrencies ?? []).map((c: any) => c.key),
-        ].filter(Boolean);
-        const activeCats = new Set(list.filter(p => p.is_active).map(p => p.category?.toLowerCase()));
-        const firstCat = gameCats.find(k => activeCats.has(k))
-          ?? list.find(p => p.is_active)?.category
-          ?? list[0].category;
-        setActiveCategory(prev => prev || firstCat);
-      }
     } catch {
       setProducts([]);
     } finally {
@@ -152,7 +139,7 @@ export default function GamePage() {
     if (imgUrl) {
       return (
         <img
-          src={`${imgUrl}?v=1`}
+          src={`${imgUrl}?v=${Date.now()}`}
           alt={product.category ?? "icon"}
           width={size}
           height={size}
@@ -608,8 +595,20 @@ export default function GamePage() {
                           </p>
                         </div>
                         <div className="flex flex-col items-center justify-center mb-6 py-4 rounded-xl" style={{ background: "rgba(0,0,0,0.2)" }}>
-                          <div className="text-3xl font-black mb-1" style={{ color: "var(--text-primary)" }}>
-                            {currentValue}<span className="text-xl">{unit}</span>
+                          {/* Gambar atau nilai nominal */}
+                          <div className="flex items-center gap-3 mb-1">
+                            {(product as any).special_image ? (
+                              <img
+                                src={(product as any).special_image}
+                                alt={product.name}
+                                style={{ width: 48, height: 48, objectFit: "contain", flexShrink: 0 }}
+                              />
+                            ) : (
+                              <span style={{ fontSize: 36, lineHeight: 1 }}>⭐</span>
+                            )}
+                            <div className="text-3xl font-black" style={{ color: "var(--text-primary)" }}>
+                              {currentValue}<span className="text-xl">{unit}</span>
+                            </div>
                           </div>
                           <div className="text-lg font-bold" style={{ color: game.color }}>{formatCurrency(calculatedPrice)}</div>
                         </div>

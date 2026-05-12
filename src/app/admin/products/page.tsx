@@ -1,12 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import {
   Plus, Pencil, Trash2, X, Gem, Coins, Save,
   RefreshCw, ToggleLeft, ToggleRight, Loader2,
   ChevronDown, CheckSquare, Square, CheckCheck,
   EyeOff, Eye, AlertTriangle, Clock, ArrowUpDown, ArrowUp, ArrowDown,
+  Upload, ImageIcon,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { Game } from "@/lib/games";
@@ -15,6 +16,7 @@ interface Product {
   id: string; name: string; category: string; price: number;
   amount: string; game_name: string; is_active: boolean;
   is_popular: boolean; sort_order: number; created_at: string;
+  special_image?: string;
 }
 
 /* ── Warna badge per kategori ─────────────────────────────── */
@@ -61,6 +63,13 @@ export default function AdminProductsPage() {
   // Spesial Package State
   const [isSpecial, setIsSpecial] = useState(false);
   const [specialConfig, setSpecialConfig] = useState({ min: 10, max: 100, step: 1, unit: "B" });
+  const [specialImage,     setSpecialImage]     = useState<string>("");       // URL yang sudah tersimpan
+  const [specialImageFile, setSpecialImageFile] = useState<File | null>(null); // file baru dipilih
+  const [specialImgPreview,setSpecialImgPreview]= useState<string>("");       // blob URL preview
+  const [specialImgUploading,setSpecialImgUploading] = useState(false);
+  const [imgInputMode, setImgInputMode] = useState<"file" | "url">("file"); // mode input gambar
+  const [specialImgUrl, setSpecialImgUrl] = useState<string>("");             // URL yang diketik manual
+  const specialImgRef = useRef<HTMLInputElement>(null);
 
   // Bulk select
   const [selected,       setSelected]       = useState<Set<string>>(new Set());
@@ -208,6 +217,11 @@ export default function AdminProductsPage() {
     setEditing(null);
     setIsSpecial(false);
     setSpecialConfig({ min: 10, max: 100, step: 1, unit: "B" });
+    setSpecialImage("");
+    setSpecialImageFile(null);
+    setSpecialImgPreview("");
+    setSpecialImgUrl("");
+    setImgInputMode("file");
 
     // Tentukan game default: pakai filter aktif jika ada, kalau tidak pakai game pertama
     const defaultGameName = filterGame !== "all"
@@ -226,6 +240,19 @@ export default function AdminProductsPage() {
   const openEdit = (p: Product) => { 
     setEditing(p); 
     setForm(p); 
+    const savedImg = p.special_image ?? "";
+    setSpecialImage(savedImg);
+    setSpecialImageFile(null);
+    // Deteksi mode: jika ada URL tersimpan, tampilkan di mode URL
+    if (savedImg.startsWith("http")) {
+      setImgInputMode("url");
+      setSpecialImgUrl(savedImg);
+      setSpecialImgPreview(savedImg);
+    } else {
+      setImgInputMode("file");
+      setSpecialImgUrl("");
+      setSpecialImgPreview(savedImg);
+    }
     if (p.category === "spesial" && p.amount?.startsWith("SPECIAL|")) {
       setIsSpecial(true);
       const parts = p.amount.split("|");
@@ -253,22 +280,78 @@ export default function AdminProductsPage() {
     if (!form.name || !finalAmount || !form.price) { alert("Lengkapi semua field"); return; }
     setSaving(true);
     try {
+      // Upload gambar paket spesial jika ada file baru
+      let finalSpecialImage = specialImage;
+
+      if (isSpecial) {
+        if (imgInputMode === "url" && specialImgUrl.trim()) {
+          // Pakai URL langsung tanpa upload
+          finalSpecialImage = specialImgUrl.trim();
+        } else if (imgInputMode === "file" && specialImageFile) {
+          setSpecialImgUploading(true);
+          try {
+            if (editing) {
+              const fd = new FormData();
+              fd.append("file", specialImageFile);
+              fd.append("product_id", editing.id);
+              const res  = await fetch("/api/admin/products/upload-image", { method: "POST", body: fd });
+              const data = await res.json();
+              if (!res.ok) throw new Error(data.error);
+              finalSpecialImage = data.imageUrl;
+              setSpecialImage(data.imageUrl);
+              setSpecialImgPreview(data.imageUrl);
+              setSpecialImageFile(null);
+            }
+          } catch (e) {
+            alert(`Upload gambar gagal: ${e instanceof Error ? e.message : "error"}`);
+            return;
+          } finally {
+            setSpecialImgUploading(false);
+          }
+        }
+      }
+
       if (editing) {
-        await fetch(`/api/admin/products/${editing.id}`, {
+        const patchRes = await fetch(`/api/admin/products/${editing.id}`, {
           method: "PATCH", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ name: form.name, category: finalCategory, price: form.price,
+          body: JSON.stringify({
+            name: form.name, category: finalCategory, price: form.price,
             amount: finalAmount, game_name: form.game_name, is_active: form.is_active,
-            is_popular: form.is_popular, sort_order: form.sort_order }),
+            is_popular: form.is_popular, sort_order: form.sort_order,
+            ...(isSpecial ? { special_image: finalSpecialImage } : { special_image: null }),
+          }),
         });
+        if (!patchRes.ok) {
+          const errData = await patchRes.json().catch(() => ({}));
+          throw new Error(errData.error || `Gagal menyimpan (${patchRes.status}). Pastikan kolom special_image sudah ditambahkan di Supabase.`);
+        }
       } else {
-        await fetch("/api/admin/products", {
+        // Buat produk dulu — sertakan special_image jika URL mode
+        const res = await fetch("/api/admin/products", {
           method: "POST", headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ ...form, amount: finalAmount, category: finalCategory }),
+          body: JSON.stringify({
+            ...form, amount: finalAmount, category: finalCategory,
+            ...(isSpecial ? { special_image: finalSpecialImage } : {}),
+          }),
         });
+        const created = await res.json();
+        if (!res.ok) throw new Error(created.error || `Gagal membuat produk (${res.status}). Pastikan kolom special_image sudah ditambahkan di Supabase.`);
+
+        // Upload file gambar untuk produk baru jika mode file
+        if (isSpecial && imgInputMode === "file" && specialImageFile && created.product?.id) {
+          setSpecialImgUploading(true);
+          try {
+            const fd = new FormData();
+            fd.append("file", specialImageFile);
+            fd.append("product_id", created.product.id);
+            await fetch("/api/admin/products/upload-image", { method: "POST", body: fd });
+          } catch { /* silent — gambar bisa di-upload ulang saat edit */ }
+          finally { setSpecialImgUploading(false); }
+        }
       }
       setShowForm(false);
       fetchProducts();
-    } catch { alert("Gagal menyimpan produk"); }
+    } catch (e) { alert(`Gagal menyimpan produk: ${e instanceof Error ? e.message : "error"}`); }
     finally { setSaving(false); }
   };
 
@@ -699,22 +782,127 @@ export default function AdminProductsPage() {
                   </div>
                 </div>
               ) : (
-                <div className="grid grid-cols-2 gap-3 p-3 rounded-xl" style={{ background: "rgba(59,130,246,0.05)", border: "1px dashed rgba(59,130,246,0.3)" }}>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "#3b82f6" }}>Minimal (Contoh: 10)</label>
-                    <input type="number" className="input-styled" value={specialConfig.min} onChange={e => setSpecialConfig({ ...specialConfig, min: Number(e.target.value) })} />
+                <div className="space-y-3">
+                  <div className="grid grid-cols-2 gap-3 p-3 rounded-xl" style={{ background: "rgba(59,130,246,0.05)", border: "1px dashed rgba(59,130,246,0.3)" }}>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#3b82f6" }}>Minimal (Contoh: 10)</label>
+                      <input type="number" className="input-styled" value={specialConfig.min} onChange={e => setSpecialConfig({ ...specialConfig, min: Number(e.target.value) })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#3b82f6" }}>Maksimal (Contoh: 19)</label>
+                      <input type="number" className="input-styled" value={specialConfig.max} onChange={e => setSpecialConfig({ ...specialConfig, max: Number(e.target.value) })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#3b82f6" }}>Kelipatan (Contoh: 1)</label>
+                      <input type="number" className="input-styled" value={specialConfig.step} onChange={e => setSpecialConfig({ ...specialConfig, step: Number(e.target.value) })} />
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold mb-1.5" style={{ color: "#3b82f6" }}>Satuan (Contoh: B)</label>
+                      <input type="text" className="input-styled" placeholder="B" value={specialConfig.unit} onChange={e => setSpecialConfig({ ...specialConfig, unit: e.target.value })} />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "#3b82f6" }}>Maksimal (Contoh: 19)</label>
-                    <input type="number" className="input-styled" value={specialConfig.max} onChange={e => setSpecialConfig({ ...specialConfig, max: Number(e.target.value) })} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "#3b82f6" }}>Kelipatan (Contoh: 1)</label>
-                    <input type="number" className="input-styled" value={specialConfig.step} onChange={e => setSpecialConfig({ ...specialConfig, step: Number(e.target.value) })} />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold mb-1.5" style={{ color: "#3b82f6" }}>Satuan (Contoh: B)</label>
-                    <input type="text" className="input-styled" placeholder="B" value={specialConfig.unit} onChange={e => setSpecialConfig({ ...specialConfig, unit: e.target.value })} />
+
+                  {/* ── Gambar Paket Spesial ── */}
+                  <div className="p-3 rounded-xl" style={{ background: "rgba(59,130,246,0.05)", border: "1px dashed rgba(59,130,246,0.3)" }}>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-semibold" style={{ color: "#3b82f6" }}>
+                        🖼️ Gambar Paket Spesial
+                        <span className="ml-1 font-normal" style={{ color: "var(--text-muted)" }}>— opsional, ganti ⭐ emoji</span>
+                      </label>
+                      {/* Tab mode */}
+                      <div className="flex rounded-lg overflow-hidden" style={{ border: "1px solid rgba(59,130,246,0.3)" }}>
+                        {(["file", "url"] as const).map((mode) => (
+                          <button key={mode} type="button"
+                            onClick={() => {
+                              setImgInputMode(mode);
+                              // Reset state lain
+                              if (mode === "file") { setSpecialImgUrl(""); }
+                              else { setSpecialImageFile(null); }
+                            }}
+                            className="px-2.5 py-1 text-xs font-semibold transition-all"
+                            style={imgInputMode === mode
+                              ? { background: "rgba(59,130,246,0.3)", color: "#93c5fd" }
+                              : { background: "transparent", color: "var(--text-muted)" }}>
+                            {mode === "file" ? "📁 Upload" : "🔗 URL"}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      {/* Preview */}
+                      <div className="w-16 h-16 rounded-xl overflow-hidden flex-shrink-0 flex items-center justify-center"
+                        style={{ background: "rgba(59,130,246,0.1)", border: "1px dashed rgba(59,130,246,0.4)" }}>
+                        {specialImgPreview
+                          ? <img src={specialImgPreview} alt="preview" style={{ width: 64, height: 64, objectFit: "contain" }}
+                              onError={() => setSpecialImgPreview("")} />
+                          : <ImageIcon size={24} style={{ color: "rgba(59,130,246,0.5)" }} />}
+                      </div>
+
+                      {/* Controls */}
+                      <div className="flex-1 min-w-0">
+                        {imgInputMode === "file" ? (
+                          <>
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <label
+                                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold cursor-pointer hover:opacity-80"
+                                style={{ background: "rgba(59,130,246,0.15)", color: "#3b82f6", border: "1px solid rgba(59,130,246,0.3)" }}>
+                                {specialImgUploading ? <Loader2 size={12} className="animate-spin" /> : <Upload size={12} />}
+                                Pilih File
+                                <input
+                                  ref={specialImgRef}
+                                  type="file" accept="image/png,image/jpeg,image/jpg,image/webp"
+                                  className="hidden"
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0];
+                                    if (!f) return;
+                                    if (f.size > 1 * 1024 * 1024) { alert("Maks 1MB"); return; }
+                                    setSpecialImageFile(f);
+                                    setSpecialImgPreview(URL.createObjectURL(f));
+                                    e.target.value = "";
+                                  }}
+                                />
+                              </label>
+                              {specialImgPreview && (
+                                <button type="button"
+                                  onClick={() => { setSpecialImageFile(null); setSpecialImage(""); setSpecialImgPreview(""); }}
+                                  className="flex items-center gap-1 px-2 py-1.5 rounded-lg text-xs"
+                                  style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444" }}>
+                                  <X size={12} /> Hapus
+                                </button>
+                              )}
+                            </div>
+                            <p className="text-xs mt-1.5 truncate" style={{ color: "var(--text-muted)" }}>
+                              {specialImageFile ? `📁 ${specialImageFile.name}` : specialImgPreview ? "✅ Gambar tersimpan" : "Belum ada gambar"}
+                            </p>
+                          </>
+                        ) : (
+                          <>
+                            <input
+                              type="url"
+                              className="input-styled text-xs"
+                              placeholder="https://example.com/gambar.png"
+                              value={specialImgUrl}
+                              onChange={(e) => {
+                                setSpecialImgUrl(e.target.value);
+                                // Live preview saat URL valid
+                                const url = e.target.value.trim();
+                                setSpecialImgPreview(url || "");
+                                setSpecialImage(url);
+                              }}
+                            />
+                            {specialImgUrl && (
+                              <button type="button"
+                                onClick={() => { setSpecialImgUrl(""); setSpecialImage(""); setSpecialImgPreview(""); }}
+                                className="flex items-center gap-1 mt-1.5 text-xs"
+                                style={{ color: "#ef4444" }}>
+                                <X size={11} /> Hapus URL
+                              </button>
+                            )}
+                          </>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
               )}

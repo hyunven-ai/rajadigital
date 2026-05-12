@@ -20,7 +20,7 @@ export async function GET() {
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { name, category, game_name, price, amount, is_active, is_popular, sort_order } = body;
+    const { name, category, game_name, price, amount, is_active, is_popular, sort_order, special_image } = body;
 
     if (!name || !category || !price) {
       return NextResponse.json({ error: "Data produk tidak lengkap" }, { status: 400 });
@@ -29,7 +29,12 @@ export async function POST(req: NextRequest) {
     const db = createServerSupabase();
     const { data, error } = await db
       .from("products")
-      .insert({ name, category, game_name: game_name ?? "Royal Dream", price, amount, is_active: is_active ?? true, is_popular: is_popular ?? false, sort_order: sort_order ?? 0 })
+      .insert({
+        name, category, game_name: game_name ?? "Royal Dream",
+        price, amount, is_active: is_active ?? true,
+        is_popular: is_popular ?? false, sort_order: sort_order ?? 0,
+        ...(special_image ? { special_image } : {}),
+      })
       .select()
       .single();
 

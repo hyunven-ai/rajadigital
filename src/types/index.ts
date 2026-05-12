@@ -11,6 +11,7 @@ export interface Product {
   original_price?: number;
   description?: string;
   amount?: string;
+  special_image?: string; // URL gambar untuk paket spesial (opsional)
   is_active: boolean;
   is_popular?: boolean;
   sort_order?: number;

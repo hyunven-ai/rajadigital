@@ -28,7 +28,7 @@ export default function Footer() {
               />
             </div>
             <p className="text-sm leading-relaxed mb-6" style={{ color: "var(--text-secondary)" }}>
-              Layanan top-up game Royal Dream dengan harga terjangkau, proses cepat, dan jaminan keamanan transaksi. Melayani 24 jam sehari, 7 hari seminggu.
+              RajaDigital hadir sebagai partner terpercaya para gamers Indonesia untuk mendapatkan layanan top up tercepat, termurah, dan paling aman. Nikmati proses instan hitungan detik untuk Royal Dream, Higgs Domino, Higgs Games Island, dan berbagai game populer lainnya dengan sistem otomatis 24 jam nonstop.
             </p>
 
             {/* Features */}

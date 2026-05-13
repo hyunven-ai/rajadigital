@@ -12,9 +12,7 @@ const BANK_LIST = [
 ];
 
 const HARGA_INFO = [
-  { label: "Harga normal", value: "Rp 56.500 / 1B", highlight: false },
-  { label: "Harga member top up", value: "Rp 60.000 / 1B", highlight: true },
-  { label: "Minimal jumlah top up berhasil", value: "1x dalam 3 hari terakhir", highlight: true },
+  { label: "Rate Bongkar", value: "Rp 59.000 / 1B", highlight: true },
 ];
 
 const STATUS_CFG: Record<string, { label: string; color: string; icon: any }> = {
@@ -269,20 +267,20 @@ Mohon proses request bongkar chip saya. Terima kasih! 🙏`;
             }}>
               <div style={{ padding: "14px 16px", borderBottom: "1px solid var(--border)" }}>
                 <p style={{ fontWeight: 700, fontSize: "13px", color: "var(--text-primary)", marginBottom: "10px" }}>
-                  Syarat Harga Member
+                  Harga Bongkar
                 </p>
                 {HARGA_INFO.map((item, i) => (
-                  <p
-                    key={i}
-                    style={{
-                      fontSize: "12px",
+                  <div key={i} style={{ display: "flex", alignItems: "center", justifyContent: "space-between",
+                    marginBottom: i < HARGA_INFO.length - 1 ? "6px" : 0 }}>
+                    <p style={{ fontSize: "12px", color: "var(--text-secondary)", lineHeight: 1.5 }}>
+                      {item.label}
+                    </p>
+                    <p style={{ fontSize: "13px", fontWeight: 700,
                       color: item.highlight ? "var(--gold-light, #f59e0b)" : "var(--text-secondary)",
-                      marginBottom: i < HARGA_INFO.length - 1 ? "6px" : 0,
-                      lineHeight: 1.5,
-                    }}
-                  >
-                    {item.highlight ? "" : "Harga normal: "}{item.highlight ? item.value : item.value}
-                  </p>
+                      lineHeight: 1.5 }}>
+                      {item.value}
+                    </p>
+                  </div>
                 ))}
               </div>
               <div style={{ padding: "14px 16px" }}>

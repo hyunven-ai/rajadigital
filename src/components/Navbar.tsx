@@ -54,11 +54,12 @@ export default function Navbar() {
             <div className="w-9 h-9" />
           </div>
 
-          {/* Logo — absolute center */}
+          {/* Logo — absolute center, geser 20px ke kiri */}
           <Link
             href="/"
             id="navbar-logo-mobile"
-            className="absolute left-1/2 -translate-x-1/2 flex items-center"
+            className="absolute left-1/2 flex items-center"
+            style={{ transform: "translateX(calc(-50% - 20px))" }}
           >
             <Image
               src="https://res.cloudinary.com/dzojrrwtr/image/upload/v1778049885/logo-raja-digital-webp_hwu82q.webp"

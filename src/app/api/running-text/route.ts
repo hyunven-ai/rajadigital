@@ -54,36 +54,46 @@ async function readConfig(): Promise<RunningTextConfig> {
   }
 }
 
-async function writeConfig(config: RunningTextConfig): Promise<boolean> {
+async function writeConfig(config: RunningTextConfig): Promise<{ ok: boolean; detail?: string }> {
   try {
     const db = createServerSupabase();
     const value = JSON.stringify(config);
 
-    // Coba UPDATE dulu (jika row sudah ada)
-    const { data: updated, error: updateErr } = await db
+    // 1. Cek apakah row sudah ada
+    const { data: existing, error: checkErr } = await db
       .from("site_settings")
-      .update({ value, updated_at: new Date().toISOString() })
+      .select("key")
       .eq("key", SETTING_KEY)
-      .select("key");
+      .maybeSingle();
 
-    // Jika row belum ada (data kosong), INSERT baru
-    if (!updateErr && (!updated || updated.length === 0)) {
+    if (checkErr) {
+      return { ok: false, detail: `CHECK error: ${JSON.stringify(checkErr)}` };
+    }
+
+    if (existing) {
+      // 2a. Row ada → UPDATE
+      const { error: updateErr } = await db
+        .from("site_settings")
+        .update({ value })
+        .eq("key", SETTING_KEY);
+
+      if (updateErr) {
+        return { ok: false, detail: `UPDATE error: ${JSON.stringify(updateErr)}` };
+      }
+    } else {
+      // 2b. Row belum ada → INSERT
       const { error: insertErr } = await db
         .from("site_settings")
         .insert({ key: SETTING_KEY, value });
+
       if (insertErr) {
-        console.error("[RUNNING-TEXT] INSERT error:", JSON.stringify(insertErr));
-        return false;
+        return { ok: false, detail: `INSERT error: ${JSON.stringify(insertErr)}` };
       }
-    } else if (updateErr) {
-      console.error("[RUNNING-TEXT] UPDATE error:", JSON.stringify(updateErr));
-      return false;
     }
 
-    return true;
+    return { ok: true };
   } catch (err) {
-    console.error("[RUNNING-TEXT] writeConfig exception:", err);
-    return false;
+    return { ok: false, detail: `Exception: ${String(err)}` };
   }
 }
 
@@ -96,10 +106,11 @@ export async function POST(req: Request) {
   try {
     const body = await req.json();
     const config: RunningTextConfig = { ...DEFAULT, ...body.config };
-    const ok = await writeConfig(config);
-    if (!ok) {
+    const result = await writeConfig(config);
+    if (!result.ok) {
+      console.error("[RUNNING-TEXT] Save failed:", result.detail);
       return NextResponse.json(
-        { ok: false, error: "Gagal menyimpan ke database. Pastikan tabel site_settings sudah ada." },
+        { ok: false, error: result.detail ?? "Gagal menyimpan ke database." },
         { status: 500 }
       );
     }

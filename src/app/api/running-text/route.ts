@@ -60,14 +60,14 @@ async function writeConfig(config: RunningTextConfig): Promise<boolean> {
     const value = JSON.stringify(config);
 
     // Coba UPDATE dulu (jika row sudah ada)
-    const { error: updateErr, count } = await db
+    const { data: updated, error: updateErr } = await db
       .from("site_settings")
       .update({ value, updated_at: new Date().toISOString() })
       .eq("key", SETTING_KEY)
-      .select("key", { count: "exact" });
+      .select("key");
 
-    // Jika row belum ada (count = 0), INSERT baru
-    if (!updateErr && count === 0) {
+    // Jika row belum ada (data kosong), INSERT baru
+    if (!updateErr && (!updated || updated.length === 0)) {
       const { error: insertErr } = await db
         .from("site_settings")
         .insert({ key: SETTING_KEY, value });

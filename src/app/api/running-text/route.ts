@@ -41,13 +41,13 @@ async function readConfig(): Promise<RunningTextConfig> {
   try {
     const db = createServerSupabase();
     const { data, error } = await db
-      .from("site_settings")
-      .select("value")
-      .eq("key", SETTING_KEY)
+      .from("running_text_config")
+      .select("config")
+      .eq("id", 1)
       .maybeSingle();
 
     if (error || !data) return DEFAULT;
-    const parsed = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
+    const parsed = typeof data.config === "string" ? JSON.parse(data.config) : data.config;
     return { ...DEFAULT, ...parsed, items: parsed.items ?? DEFAULT.items };
   } catch {
     return DEFAULT;
@@ -57,13 +57,13 @@ async function readConfig(): Promise<RunningTextConfig> {
 async function writeConfig(config: RunningTextConfig): Promise<{ ok: boolean; detail?: string }> {
   try {
     const db = createServerSupabase();
-    const value = JSON.stringify(config);
+    const configJson = JSON.stringify(config);
 
-    // 1. Cek apakah row sudah ada
+    // 1. Cek apakah row sudah ada (id=1)
     const { data: existing, error: checkErr } = await db
-      .from("site_settings")
-      .select("key")
-      .eq("key", SETTING_KEY)
+      .from("running_text_config")
+      .select("id")
+      .eq("id", 1)
       .maybeSingle();
 
     if (checkErr) {
@@ -73,18 +73,18 @@ async function writeConfig(config: RunningTextConfig): Promise<{ ok: boolean; de
     if (existing) {
       // 2a. Row ada → UPDATE
       const { error: updateErr } = await db
-        .from("site_settings")
-        .update({ value })
-        .eq("key", SETTING_KEY);
+        .from("running_text_config")
+        .update({ config: configJson })
+        .eq("id", 1);
 
       if (updateErr) {
         return { ok: false, detail: `UPDATE error: ${JSON.stringify(updateErr)}` };
       }
     } else {
-      // 2b. Row belum ada → INSERT
+      // 2b. Row belum ada → INSERT dengan id=1
       const { error: insertErr } = await db
-        .from("site_settings")
-        .insert({ key: SETTING_KEY, value });
+        .from("running_text_config")
+        .insert({ id: 1, config: configJson });
 
       if (insertErr) {
         return { ok: false, detail: `INSERT error: ${JSON.stringify(insertErr)}` };

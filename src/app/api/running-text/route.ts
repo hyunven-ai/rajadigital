@@ -1,24 +1,23 @@
 import { NextResponse } from "next/server";
-import fs from "fs";
-import path from "path";
+import { createServerSupabase } from "@/lib/supabase";
 
 export const dynamic = "force-dynamic";
 export const revalidate = 0;
-
-export interface RunningTextConfig {
-  enabled: boolean;
-  items: RunningTextItem[];
-  speed: number;       // 20-100, higher = faster
-  bgColor: string;     // CSS color
-  textColor: string;   // CSS color
-  separator: string;   // symbol between items, e.g. "✦"
-}
 
 export interface RunningTextItem {
   id: string;
   text: string;
   emoji: string;
   active: boolean;
+}
+
+export interface RunningTextConfig {
+  enabled: boolean;
+  items: RunningTextItem[];
+  speed: number;
+  bgColor: string;
+  textColor: string;
+  separator: string;
 }
 
 const DEFAULT: RunningTextConfig = {
@@ -35,37 +34,66 @@ const DEFAULT: RunningTextConfig = {
   separator: "✦",
 };
 
-const DATA_FILE = path.join(process.cwd(), ".running-text.json");
+const SETTING_KEY = "running_text_config";
 const noStore = { headers: { "Cache-Control": "no-store, max-age=0" } };
 
-function readFile(): RunningTextConfig {
+async function readConfig(): Promise<RunningTextConfig> {
   try {
-    if (!fs.existsSync(DATA_FILE)) return DEFAULT;
-    const str = fs.readFileSync(DATA_FILE, "utf-8");
-    const parsed = JSON.parse(str);
+    const db = createServerSupabase();
+    const { data, error } = await db
+      .from("site_settings")
+      .select("value")
+      .eq("key", SETTING_KEY)
+      .maybeSingle();
+
+    if (error || !data) return DEFAULT;
+    const parsed = typeof data.value === "string" ? JSON.parse(data.value) : data.value;
     return { ...DEFAULT, ...parsed, items: parsed.items ?? DEFAULT.items };
   } catch {
     return DEFAULT;
   }
 }
 
-function writeFile(data: RunningTextConfig) {
+async function writeConfig(config: RunningTextConfig): Promise<boolean> {
   try {
-    fs.writeFileSync(DATA_FILE, JSON.stringify(data, null, 2), { encoding: "utf-8" });
+    const db = createServerSupabase();
+    const value = JSON.stringify(config);
+
+    // Upsert: insert jika belum ada, update jika sudah ada
+    const { error } = await db
+      .from("site_settings")
+      .upsert(
+        { key: SETTING_KEY, value },
+        { onConflict: "key" }
+      );
+
+    if (error) {
+      console.error("[RUNNING-TEXT] DB write error:", error);
+      return false;
+    }
+    return true;
   } catch (err) {
-    console.warn("[RUNNING-TEXT] Failed to write file:", err);
+    console.error("[RUNNING-TEXT] writeConfig failed:", err);
+    return false;
   }
 }
 
 export async function GET() {
-  return NextResponse.json({ config: readFile() }, noStore);
+  const config = await readConfig();
+  return NextResponse.json({ config }, noStore);
 }
 
 export async function POST(req: Request) {
   try {
     const body = await req.json();
     const config: RunningTextConfig = { ...DEFAULT, ...body.config };
-    writeFile(config);
+    const ok = await writeConfig(config);
+    if (!ok) {
+      return NextResponse.json(
+        { ok: false, error: "Gagal menyimpan ke database. Pastikan tabel site_settings sudah ada." },
+        { status: 500 }
+      );
+    }
     return NextResponse.json({ ok: true, config });
   } catch (err) {
     return NextResponse.json({ ok: false, error: String(err) }, { status: 500 });

@@ -59,21 +59,30 @@ async function writeConfig(config: RunningTextConfig): Promise<boolean> {
     const db = createServerSupabase();
     const value = JSON.stringify(config);
 
-    // Upsert: insert jika belum ada, update jika sudah ada
-    const { error } = await db
+    // Coba UPDATE dulu (jika row sudah ada)
+    const { error: updateErr, count } = await db
       .from("site_settings")
-      .upsert(
-        { key: SETTING_KEY, value },
-        { onConflict: "key" }
-      );
+      .update({ value, updated_at: new Date().toISOString() })
+      .eq("key", SETTING_KEY)
+      .select("key", { count: "exact" });
 
-    if (error) {
-      console.error("[RUNNING-TEXT] DB write error:", error);
+    // Jika row belum ada (count = 0), INSERT baru
+    if (!updateErr && count === 0) {
+      const { error: insertErr } = await db
+        .from("site_settings")
+        .insert({ key: SETTING_KEY, value });
+      if (insertErr) {
+        console.error("[RUNNING-TEXT] INSERT error:", JSON.stringify(insertErr));
+        return false;
+      }
+    } else if (updateErr) {
+      console.error("[RUNNING-TEXT] UPDATE error:", JSON.stringify(updateErr));
       return false;
     }
+
     return true;
   } catch (err) {
-    console.error("[RUNNING-TEXT] writeConfig failed:", err);
+    console.error("[RUNNING-TEXT] writeConfig exception:", err);
     return false;
   }
 }

@@ -41,7 +41,8 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Status tidak valid" }, { status: 400 });
     }
 
-    await updateTransactionStatus(id, status, is_processed);
+    const admin = await getAdminFromRequest(req);
+    await updateTransactionStatus(id, status, is_processed, admin.username);
     return NextResponse.json({ success: true });
   } catch (err) {
     console.error("Update transaction error:", err);

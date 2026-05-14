@@ -137,10 +137,14 @@ export async function getTransactions(filters?: {
   return (data as Transaction[]) ?? [];
 }
 
-export async function updateTransactionStatus(id: string, status: string, is_processed?: boolean) {
+export async function updateTransactionStatus(id: string, status: string, is_processed?: boolean, processed_by?: string) {
   const db = createServerSupabase();
   const update: Record<string, unknown> = { status };
   if (is_processed !== undefined) update.is_processed = is_processed;
+  if (processed_by) {
+    update.processed_by = processed_by;
+    update.processed_at = new Date().toISOString();
+  }
 
   const { error } = await db.from("transactions").update(update).eq("id", id);
   if (error) throw error;

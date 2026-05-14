@@ -3,6 +3,24 @@ import { createServerSupabase } from "@/lib/supabase";
 
 type Params = { params: Promise<{ id: string }> };
 
+import { jwtVerify } from "jose";
+
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET ?? "rajadigital-secret-change-in-production"
+);
+
+async function getAdminFromRequest(req: NextRequest) {
+  try {
+    const auth = req.headers.get("authorization") ?? "";
+    const token = auth.replace("Bearer ", "").trim();
+    if (!token || token === "dev-token") return { username: "admin" };
+    const { payload } = await jwtVerify(token, JWT_SECRET);
+    return { username: String(payload.username ?? "admin") };
+  } catch {
+    return { username: "admin" };
+  }
+}
+
 /* ── PATCH: Update status bongkar chip (admin) ── */
 export async function PATCH(req: NextRequest, { params }: Params) {
   try {
@@ -17,11 +35,16 @@ export async function PATCH(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "Status tidak valid" }, { status: 400 });
     }
 
+    const admin = await getAdminFromRequest(req);
     const db = createServerSupabase();
     const updateData: Record<string, unknown> = {};
     if (status !== undefined)              updateData.status              = status;
     if (admin_notes !== undefined)         updateData.admin_notes         = admin_notes;
     if (nominal_pembayaran !== undefined)  updateData.nominal_pembayaran  = nominal_pembayaran;
+    
+    // update logs details
+    updateData.processed_by = admin.username;
+    updateData.processed_at = new Date().toISOString();
 
     const { data, error } = await db
       .from("bongkar_chip_requests")

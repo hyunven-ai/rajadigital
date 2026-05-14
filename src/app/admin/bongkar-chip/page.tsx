@@ -21,6 +21,8 @@ interface BongkarRequest {
   whatsapp: string;
   status: "pending" | "diproses" | "selesai" | "batal";
   admin_notes?: string;
+  processed_by?: string;
+  processed_at?: string;
   created_at: string;
 }
 
@@ -169,8 +171,13 @@ export default function AdminBongkarChipPage() {
     setUpdating(id);
     setRows(prev => prev.map(r => r.id === id ? { ...r, status: status as BongkarRequest["status"] } : r));
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") ?? "" : "";
       const res = await fetch(`/api/bongkar-chip/${id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ status }),
       });
       if (!res.ok) { fetch_(); }
@@ -498,7 +505,7 @@ export default function AdminBongkarChipPage() {
                   </th>
                   <th>Invoice</th><th>Game</th><th>Player ID</th><th>Nominal</th>
                   <th>Bank</th><th>No. Rekening</th><th>Nama Rekening</th>
-                  <th>WhatsApp</th><th>Waktu</th><th>Pembayaran</th><th>Status</th><th>Ubah Status</th><th>Aksi</th>
+                  <th>WhatsApp</th><th>Waktu</th><th>Pembayaran</th><th>Status</th><th>Ubah Status</th><th>Diproses Oleh</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -583,27 +590,91 @@ export default function AdminBongkarChipPage() {
                         </span>
                       </td>
                       <td>
-                        <div className="relative">
-                          <select id={`bongkar-status-${r.id}`} value={r.status}
-                            disabled={updating === r.id}
-                            onChange={e => updateStatus(r.id, e.target.value)}
-                            className="text-xs px-2 py-1.5 rounded-lg cursor-pointer"
-                            style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)", appearance: "none", paddingRight: "24px" }}>
-                            <option value="pending">Pending</option>
-                            <option value="diproses">Diproses</option>
-                            <option value="selesai">Selesai</option>
-                            <option value="batal">Batal</option>
-                          </select>
-                          <ChevronDown size={10} className="absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none"
-                            style={{ color: "var(--text-muted)" }} />
-                          {updating === r.id && <Loader2 size={10} className="absolute right-6 top-1/2 -translate-y-1/2 animate-spin" style={{ color: "var(--text-muted)" }} />}
-                        </div>
+                        {(r.status === "selesai" || r.status === "batal") ? (
+                          /* Already decided — locked */
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold"
+                              title={`Status sudah ${r.status} — tidak dapat diubah`}
+                              style={{
+                                background: r.status === "selesai" ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
+                                border: `1.5px solid ${r.status === "selesai" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
+                                color: r.status === "selesai" ? "#10b981" : "#ef4444",
+                                cursor: "default",
+                              }}
+                            >
+                              {r.status === "selesai" ? <CheckCircle size={11} /> : <XCircle size={11} />}
+                              {r.status === "selesai" ? "Confirmed" : "Rejected"}
+                            </span>
+                            <span title="Status sudah final" style={{ fontSize: 14, lineHeight: 1 }}>🔒</span>
+                          </div>
+                        ) : (
+                          /* Pending / Diproses — show Confirm + Reject */
+                          <div className="flex items-center gap-1.5">
+                            <button
+                              id={`confirm-bongkar-${r.id}`}
+                              title="Konfirmasi Selesai"
+                              disabled={updating === r.id}
+                              onClick={() => updateStatus(r.id, "selesai")}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105 active:scale-95"
+                              style={{
+                                background: "rgba(16,185,129,0.15)",
+                                border: "1.5px solid rgba(16,185,129,0.5)",
+                                color: "#10b981",
+                                opacity: updating === r.id ? 0.5 : 1,
+                                cursor: updating === r.id ? "not-allowed" : "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {updating === r.id
+                                ? <Loader2 size={11} className="animate-spin" />
+                                : <CheckCircle size={11} />}
+                              Confirm
+                            </button>
+                            <button
+                              id={`reject-bongkar-${r.id}`}
+                              title="Tolak (Batal)"
+                              disabled={updating === r.id}
+                              onClick={() => updateStatus(r.id, "batal")}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105 active:scale-95"
+                              style={{
+                                background: "rgba(239,68,68,0.12)",
+                                border: "1.5px solid rgba(239,68,68,0.4)",
+                                color: "#ef4444",
+                                opacity: updating === r.id ? 0.5 : 1,
+                                cursor: updating === r.id ? "not-allowed" : "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {updating === r.id
+                                ? <Loader2 size={11} className="animate-spin" />
+                                : <XCircle size={11} />}
+                              Reject
+                            </button>
+                          </div>
+                        )}
                       </td>
                       <td>
+                        {r.processed_by ? (
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                              style={{ background: "rgba(251,191,36,0.15)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.3)" }}
+                            >
+                              {r.processed_by.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold" style={{ color: "var(--text-primary)" }}>{r.processed_by}</div>
+                              <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>{r.processed_at ? new Date(r.processed_at).toLocaleString("id-ID", { dateStyle: "short", timeStyle: "short" }) : ""}</div>
+                            </div>
+                          </div>
+                        ) : <span className="text-xs" style={{ color: "var(--border)" }}>—</span>}
+                      </td>
+                      <td className="text-right">
                         <button id={`delete-bongkar-${r.id}`} onClick={() => setDeleteTarget(r)}
-                          className="flex items-center gap-1 text-xs font-semibold px-2 py-1.5 rounded-lg"
+                          className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110 active:scale-95"
                           style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
-                          <Trash2 size={12} /> Hapus
+                          <Trash2 size={13} />
                         </button>
                       </td>
                     </tr>
@@ -627,7 +698,7 @@ export default function AdminBongkarChipPage() {
                       <span style={{ color: "var(--text-muted)", fontSize: 11 }}>—</span>
                     )}
                   </td>
-                  <td colSpan={3} />
+                  <td colSpan={4} />
                 </tr>
               </tfoot>
             </table>

@@ -26,6 +26,8 @@ interface Transaction {
   is_processed: boolean;
   notes?: string;
   payment_proof?: string | null;
+  processed_by?: string;
+  processed_at?: string;
   created_at: string;
 }
 
@@ -419,8 +421,13 @@ export default function AdminTransactionsPage() {
     setUpdating(id);
     setTransactions(prev => prev.map(t => t.id === id ? { ...t, status: status as Transaction["status"] } : t));
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") ?? "" : "";
       await fetch(`/api/admin/transactions/${id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ status }),
       });
     } catch { fetchTransactions(); }
@@ -852,7 +859,7 @@ export default function AdminTransactionsPage() {
                   </th>
                   <th>Invoice</th><th>Game ID</th><th>Nama</th>
                   <th>Paket</th><th>Harga</th><th>WhatsApp</th><th>Bukti Transfer</th><th>Catatan</th>
-                  <th>Waktu</th><th>Status</th><th>Ubah Status</th>
+                  <th>Waktu</th><th>Status</th><th>Ubah Status</th><th>Diproses Oleh</th><th></th>
                 </tr>
               </thead>
               <tbody>
@@ -952,14 +959,86 @@ export default function AdminTransactionsPage() {
                         </span>
                       </td>
                       <td>
-                        <select id={`status-select-${t.id}`} value={t.status}
-                          onChange={e => updateStatus(t.id, e.target.value)} disabled={isBusy}
-                          className="text-xs px-2 py-1.5 rounded-lg cursor-pointer"
-                          style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-primary)", opacity: isBusy ? 0.5 : 1 }}>
-                          <option value="pending">Pending</option>
-                          <option value="selesai">Selesai</option>
-                          <option value="batal">Batal</option>
-                        </select>
+                        {t.status === "pending" ? (
+                          <div className="flex items-center gap-1.5">
+                            {/* Confirm button */}
+                            <button
+                              id={`confirm-tx-${t.id}`}
+                              title="Konfirmasi (Selesai)"
+                              disabled={isBusy}
+                              onClick={() => updateStatus(t.id, "selesai")}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105 active:scale-95"
+                              style={{
+                                background: "rgba(16,185,129,0.15)",
+                                border: "1.5px solid rgba(16,185,129,0.5)",
+                                color: "#10b981",
+                                opacity: isBusy ? 0.5 : 1,
+                                cursor: isBusy ? "not-allowed" : "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {isBusy
+                                ? <Loader2 size={11} className="animate-spin" />
+                                : <CheckCircle size={11} />}
+                              Confirm
+                            </button>
+                            {/* Reject button */}
+                            <button
+                              id={`reject-tx-${t.id}`}
+                              title="Tolak (Batal)"
+                              disabled={isBusy}
+                              onClick={() => updateStatus(t.id, "batal")}
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold transition-all hover:scale-105 active:scale-95"
+                              style={{
+                                background: "rgba(239,68,68,0.12)",
+                                border: "1.5px solid rgba(239,68,68,0.4)",
+                                color: "#ef4444",
+                                opacity: isBusy ? 0.5 : 1,
+                                cursor: isBusy ? "not-allowed" : "pointer",
+                                whiteSpace: "nowrap",
+                              }}
+                            >
+                              {isBusy
+                                ? <Loader2 size={11} className="animate-spin" />
+                                : <XCircle size={11} />}
+                              Reject
+                            </button>
+                          </div>
+                        ) : (
+                          /* Already decided — locked, show badge only */
+                          <div className="flex items-center gap-1.5">
+                            <span
+                              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-bold"
+                              title={`Status sudah ${t.status} — tidak dapat diubah`}
+                              style={{
+                                background: t.status === "selesai" ? "rgba(16,185,129,0.1)" : "rgba(239,68,68,0.1)",
+                                border: `1.5px solid ${t.status === "selesai" ? "rgba(16,185,129,0.3)" : "rgba(239,68,68,0.3)"}`,
+                                color: t.status === "selesai" ? "#10b981" : "#ef4444",
+                                cursor: "default",
+                              }}
+                            >
+                              {t.status === "selesai" ? <CheckCircle size={11} /> : <XCircle size={11} />}
+                              {t.status === "selesai" ? "Confirmed" : "Rejected"}
+                            </span>
+                            <span title="Status sudah final" style={{ fontSize: 14, lineHeight: 1 }}>🔒</span>
+                          </div>
+                        )}
+                      </td>
+                      <td>
+                        {t.processed_by ? (
+                          <div className="flex items-center gap-2">
+                            <div
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0"
+                              style={{ background: "rgba(251,191,36,0.15)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.3)" }}
+                            >
+                              {t.processed_by.charAt(0).toUpperCase()}
+                            </div>
+                            <div>
+                              <div className="text-xs font-bold" style={{ color: "var(--text-primary)" }}>{t.processed_by}</div>
+                              <div className="text-[10px]" style={{ color: "var(--text-muted)" }}>{t.processed_at ? formatDate(t.processed_at) : ""}</div>
+                            </div>
+                          </div>
+                        ) : <span className="text-xs" style={{ color: "var(--border)" }}>—</span>}
                       </td>
                       <td className="text-right">
                         <button
@@ -1023,7 +1102,16 @@ export default function AdminTransactionsPage() {
       </div>
 
       {/* ── LOG HISTORY PANEL ── */}
-      <div className="mt-4 rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
+      <div className="mt-8 mb-3 flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          <div className="w-1 h-6 rounded-full" style={{ background: "linear-gradient(180deg,#a78bfa,#7c3aed)" }} />
+          <h2 className="text-lg font-black" style={{ fontFamily: "var(--font-outfit)", color: "var(--text-primary)", letterSpacing: "-0.02em" }}>
+            History
+          </h2>
+        </div>
+        <div className="flex-1 h-px" style={{ background: "linear-gradient(90deg, rgba(167,139,250,0.3), transparent)" }} />
+      </div>
+      <div className="rounded-2xl overflow-hidden" style={{ border: "1px solid var(--border)" }}>
         <button id="toggle-log-history"
           onClick={() => setShowLogs(v => !v)}
           className="w-full flex items-center justify-between px-5 py-3 transition-all hover:opacity-80"
@@ -1065,7 +1153,7 @@ export default function AdminTransactionsPage() {
                 <table className="table-styled w-full">
                   <thead>
                     <tr>
-                      <th>Admin</th><th>Invoice</th><th>Game ID</th>
+                      <th>Admin (Nama)</th><th>Invoice</th><th>Game ID</th>
                       <th>Produk</th><th>Harga</th><th>Status</th>
                       <th>WhatsApp</th><th>Waktu Hapus</th>
                     </tr>

@@ -1507,7 +1507,7 @@ export default function AdminTransactionsPage() {
                 <span style={{ color: "var(--text-muted)" }}>Total baris</span>
                 <strong className="text-right" style={{ color: "#a78bfa" }}>{filtered.length} transaksi</strong>
                 <span style={{ color: "var(--text-muted)" }}>Status</span>
-                <strong className="text-right" style={{ color: "var(--text-primary)" }}>{filter === "all" ? "Semua" : filter}</strong>
+                <strong className="text-right" style={{ color: "var(--text-primary)" }}>Pending</strong>
                 <span style={{ color: "var(--text-muted)" }}>Selesai</span>
                 <strong className="text-right" style={{ color: "#10b981" }}>{filtered.filter(t => t.status === "selesai").length}</strong>
                 <span style={{ color: "var(--text-muted)" }}>Pending</span>

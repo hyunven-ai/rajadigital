@@ -70,13 +70,13 @@ const STATUS_CONFIG = {
 
 const FILTER_BUTTONS = [
   { key: "all",     label: "Semua" },
-  { key: "pending", label: "Pending" },
   { key: "selesai", label: "Selesai" },
   { key: "batal",   label: "Batal" },
 ];
 
-export default function AdminTransactionsPage() {
+export default function AdminTransactionsHistoryPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [filter,  setFilter]  = useState<"all"|"pending"|"selesai"|"batal">("all");
   const [gameFilter, setGameFilter] = useState("");
   const [search,  setSearch]  = useState("");
   const [limit,   setLimit]   = useState(50);
@@ -126,7 +126,7 @@ export default function AdminTransactionsPage() {
   const fetchTransactions = useCallback(async () => {
     try {
       const params = new URLSearchParams({ limit: limit.toString() });
-      params.set("status", "pending");
+      if (filter !== "all") params.set("status", filter);
       if (showToday) {
         params.set("date_from", todayStr);
         params.set("date_to",   todayStr);
@@ -136,10 +136,10 @@ export default function AdminTransactionsPage() {
       }
       const res  = await fetch(`/api/admin/transactions?${params}`);
       const data = await res.json();
-      if (data.transactions) setTransactions(data.transactions);
+      if (data.transactions) setTransactions(data.transactions.filter((t: Transaction) => t.status !== "pending"));
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
-  }, [showToday, dateFrom, dateTo, todayStr, limit]);
+  }, [filter, showToday, dateFrom, dateTo, todayStr, limit]);
 
   useEffect(() => { setLoading(true); fetchTransactions(); }, [fetchTransactions]);
 
@@ -157,13 +157,7 @@ export default function AdminTransactionsPage() {
         "postgres_changes" as any,
         { event: "INSERT", schema: "public", table: "transactions" },
         (payload: { new: Transaction }) => {
-          console.log("[Realtime] INSERT received:", payload.new);
-          const tx = payload.new;
-          setTransactions(prev => [tx, ...prev]);
-          setNewIds(prev => new Set(prev).add(tx.id));
-          setTimeout(() => setNewIds(prev => { const n = new Set(prev); n.delete(tx.id); return n; }), 4000);
-          setNewTxToast({ name: tx.username || tx.game_id, game: tx.game_name, price: tx.product_price });
-          setTimeout(() => setNewTxToast(null), 5000);
+          // Ignore new transactions since they are always pending
         }
       )
       .on(
@@ -173,7 +167,14 @@ export default function AdminTransactionsPage() {
         (payload: { new: Transaction }) => {
           console.log("[Realtime] UPDATE received:", payload.new);
           const updated = payload.new;
-          setTransactions(prev => prev.map(t => t.id === updated.id ? updated : t));
+          setTransactions(prev => {
+            const exists = prev.find(t => t.id === updated.id);
+            if (updated.status !== "pending") {
+              if (exists) return prev.map(t => t.id === updated.id ? updated : t);
+              return [updated, ...prev];
+            }
+            return prev.filter(t => t.id !== updated.id);
+          });
         }
       )
       .subscribe((status, err) => {
@@ -544,7 +545,7 @@ export default function AdminTransactionsPage() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-black mb-1" style={{ fontFamily: "var(--font-outfit)", color: "var(--text-primary)" }}>
-            Transaksi Masuk
+            History Transaksi
           </h1>
           <p className="text-sm flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
             Kelola dan pantau semua transaksi masuk
@@ -590,12 +591,7 @@ export default function AdminTransactionsPage() {
             )}
           </button>
 
-          {/* ── TOMBOL TAMBAH ── */}
-          <button id="btn-tambah-transaksi"
-            onClick={() => { setShowForm(true); setFormError(""); setForm(EMPTY_FORM); setProducts([]); }}
-            className="btn-gold flex items-center gap-2" style={{ padding: "10px 18px" }}>
-            <Plus size={16} /> Tambah Transaksi
-          </button>
+          {/* Removed Tambah Transaksi */}
 
           <AlarmControl config={alarmConfig} onChange={updateConfig} onTest={testAlarm} pendingCount={pendingCount} />
         </div>
@@ -642,8 +638,24 @@ export default function AdminTransactionsPage() {
             </select>
             <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", fontSize: 10, color: "var(--text-muted)" }}>▼</span>
           </div>
-          {/* Removed Filter Buttons */}
+          <div className="flex gap-2 flex-wrap">
+            {FILTER_BUTTONS.map(btn => (
+              <button key={btn.key} id={`filter-${btn.key}`}
+                onClick={() => setFilter(btn.key as typeof filter)}
+                className="px-4 py-2 rounded-xl text-xs font-semibold transition-all"
+                style={filter === btn.key
+                  ? { background: "linear-gradient(135deg,#fbbf24,#f59e0b)", color: "#0f172a" }
+                  : { background: "var(--bg-secondary)", color: "var(--text-secondary)", border: "1px solid var(--border)" }}>
+                {btn.label}
+                {btn.key === "pending" && pendingCount > 0 && (
+                  <span className="ml-1.5 px-1.5 py-0.5 rounded-full text-xs font-bold"
+                    style={{ background: "#f59e0b", color: "#000" }}>{pendingCount}</span>
+                )}
+              </button>
+            ))}
+          </div>
         </div>
+
         {/* Row 2: Date filter */}
         <div className="flex flex-wrap gap-2 items-center">
           {/* Hari ini shortcut */}

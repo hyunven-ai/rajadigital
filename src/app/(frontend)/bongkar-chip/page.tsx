@@ -64,7 +64,14 @@ export default function BongkarChipPage() {
   }, []);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
-    setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    if (e.target.name === "whatsapp") {
+      let val = e.target.value.replace(/\D/g, "");
+      if (val.length > 0 && val[0] !== '0' && val[0] !== '6') val = "";
+      else if (val.length >= 2 && val.startsWith('6') && val[1] !== '2') val = "6";
+      setForm(prev => ({ ...prev, whatsapp: val }));
+    } else {
+      setForm(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    }
     setError(null);
   };
 
@@ -84,6 +91,8 @@ export default function BongkarChipPage() {
     if (!form.nomor_rekening.trim()) return setError("Nomor rekening wajib diisi.");
     if (!form.nama_rekening.trim()) return setError("Nama rekening wajib diisi.");
     if (!form.whatsapp.trim()) return setError("Nomor WhatsApp wajib diisi.");
+    const waRegex = /^(08|628)\d{8,12}$/;
+    if (!waRegex.test(form.whatsapp.trim())) return setError("Nomor WhatsApp tidak valid (contoh: 08123456789 atau 628...)");
 
     setLoading(true);
     try {

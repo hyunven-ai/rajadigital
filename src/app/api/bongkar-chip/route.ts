@@ -36,7 +36,13 @@ export async function GET(req: NextRequest) {
       .select("*")
       .order("created_at", { ascending: false });
 
-    if (status !== "all") q = q.eq("status", status);
+    if (status !== "all") {
+      if (status.includes(",")) {
+        q = q.in("status", status.split(","));
+      } else {
+        q = q.eq("status", status);
+      }
+    }
     if (date_from)        q = q.gte("created_at", `${date_from}T00:00:00.000Z`);
     if (date_to)          q = q.lte("created_at", `${date_to}T23:59:59.999Z`);
     q = q.range(offset, offset + limit - 1);

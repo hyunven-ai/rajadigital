@@ -180,6 +180,8 @@ export default function GamePage() {
     if (!gameId.trim())    { alert("Masukkan Game ID terlebih dahulu!"); return; }
     if (!username.trim())  { alert("Masukkan Nama Pengguna/Game terlebih dahulu!"); return; }
     if (!whatsapp.trim())  { alert("Masukkan nomor WhatsApp!"); return; }
+    const waRegex = /^(08|628)\d{8,12}$/;
+    if (!waRegex.test(whatsapp.trim())) { alert("Nomor WhatsApp tidak valid (contoh: 08123456789 atau 628...)"); return; }
     if (!selectedProduct)  { alert("Pilih paket terlebih dahulu!"); return; }
     setModalOpen(true);
   };
@@ -412,7 +414,12 @@ export default function GamePage() {
                 className="input-styled"
                 placeholder="Contoh: 08123456789"
                 value={whatsapp}
-                onChange={(e) => setWhatsapp(e.target.value.replace(/\D/g, ""))}
+                onChange={(e) => {
+                  let val = e.target.value.replace(/\D/g, "");
+                  if (val.length > 0 && val[0] !== '0' && val[0] !== '6') val = "";
+                  else if (val.length >= 2 && val.startsWith('6') && val[1] !== '2') val = "6";
+                  setWhatsapp(val);
+                }}
               />
             </div>
           </div>

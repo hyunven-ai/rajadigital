@@ -59,14 +59,14 @@ const EMPTY_FORM = {
 };
 
 const FILTERS = [
-  { key: "pending,diproses", label: "Semua Masuk" },
-  { key: "pending", label: "Pending" },
-  { key: "diproses", label: "Diproses" },
+  { key: "selesai,batal", label: "Semua History" },
+  { key: "selesai", label: "Selesai" },
+  { key: "batal", label: "Batal" },
 ];
 
 export default function AdminBongkarChipPage() {
   const [rows, setRows]         = useState<BongkarRequest[]>([]);
-  const [filter, setFilter]     = useState("pending,diproses");
+  const [filter, setFilter]     = useState("selesai,batal");
   const [gameFilter, setGameFilter] = useState("");
   const [search, setSearch]     = useState("");
   const [loading, setLoading]   = useState(true);
@@ -109,7 +109,7 @@ export default function AdminBongkarChipPage() {
     try {
       const p = new URLSearchParams({ limit: "200" });
       if (filter && filter !== "all") p.set("status", filter);
-      else p.set("status", "pending,diproses");
+      else p.set("status", "selesai,batal");
       if (showToday) { p.set("date_from", todayStr); p.set("date_to", todayStr); }
       else { if (dateFrom) p.set("date_from", dateFrom); if (dateTo) p.set("date_to", dateTo); }
       const res  = await fetch(`/api/bongkar-chip?${p}`);
@@ -260,7 +260,7 @@ export default function AdminBongkarChipPage() {
     if (!form.whatsapp.trim())       return setFormError("Nomor WhatsApp wajib diisi.");
     const waRegex = /^(08|628)\d{8,12}$/;
     if (!waRegex.test(form.whatsapp.trim())) return setFormError("Nomor WhatsApp tidak valid (contoh: 08123456789 atau 628...)");
-
+    
     setSaving(true);
     try {
       const res = await fetch("/api/bongkar-chip", {
@@ -308,7 +308,7 @@ export default function AdminBongkarChipPage() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-black mb-1 flex items-center gap-2" style={{ fontFamily: "var(--font-outfit)", color: "var(--text-primary)" }}>
-            <Zap size={22} style={{ color: "#f87171" }} /> Bongkar Chip Masuk
+            <History size={22} style={{ color: "#f87171" }} /> History Bongkar Chip
           </h1>
           <p className="text-sm" style={{ color: "var(--text-muted)" }}>Kelola dan proses semua request bongkar chip</p>
         </div>
@@ -325,11 +325,7 @@ export default function AdminBongkarChipPage() {
             style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
           </button>
-          <button id="btn-tambah-bongkar"
-            onClick={() => { setShowForm(true); setForm(EMPTY_FORM); setFormError(""); }}
-            className="btn-gold flex items-center gap-2" style={{ padding: "10px 18px" }}>
-            <Plus size={16} /> Tambah Manual
-          </button>
+          {/* Removed Tambah Manual button */}
         </div>
       </div>
 

@@ -74,15 +74,19 @@ function isSupabaseConfigured(): boolean {
 const noStore = { headers: { "Cache-Control": "no-store, max-age=0" } };
 
 export async function GET() {
+  const localData = readFile();
   if (isSupabaseConfigured()) {
     try {
       const { createClient } = await import("@supabase/supabase-js");
       const sb = createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, process.env.SUPABASE_SERVICE_ROLE_KEY!);
       const { data } = await sb.from("site_settings").select("*").eq("id", 1).maybeSingle();
-      if (data) return NextResponse.json({ settings: { ...DEFAULT, ...data } }, noStore);
+      if (data) {
+        // Merge Supabase data with localData so that fields not present in Supabase (like wa2) are retained
+        return NextResponse.json({ settings: { ...DEFAULT, ...localData, ...data } }, noStore);
+      }
     } catch { /* fall through */ }
   }
-  return NextResponse.json({ settings: readFile() }, noStore);
+  return NextResponse.json({ settings: localData }, noStore);
 }
 
 export async function POST(req: Request) {
@@ -109,6 +113,9 @@ export async function POST(req: Request) {
             wa_widget_number: settings.wa_widget_number,
             wa_widget_label: settings.wa_widget_label,
             wa_widget_enabled: settings.wa_widget_enabled,
+            wa2_widget_number: settings.wa2_widget_number,
+            wa2_widget_label: settings.wa2_widget_label,
+            wa2_widget_enabled: settings.wa2_widget_enabled,
             tg_widget_username: settings.tg_widget_username,
             tg_widget_label: settings.tg_widget_label,
             tg_widget_enabled: settings.tg_widget_enabled,

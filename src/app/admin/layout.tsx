@@ -11,8 +11,22 @@ import {
 
 const navItems = [
   { href: "/admin/dashboard",    label: "Dashboard",         icon: LayoutDashboard },
-  { href: "/admin/transactions", label: "Transaksi",          icon: ShoppingCart },
-  { href: "/admin/bongkar-chip", label: "Bongkar Chip",       icon: Zap },
+  {
+    label: "Transaksi",
+    icon: ShoppingCart,
+    subItems: [
+      { href: "/admin/transactions", label: "Transaksi Masuk" },
+      { href: "/admin/transactions/history", label: "History Transaksi" },
+    ]
+  },
+  {
+    label: "Bongkar Chip",
+    icon: Zap,
+    subItems: [
+      { href: "/admin/bongkar-chip", label: "Bongkar Chip Masuk" },
+      { href: "/admin/bongkar-chip/history", label: "History Bongkar Chip" },
+    ]
+  },
   { href: "/admin/products",     label: "Produk",             icon: Package },
   { href: "/admin/banners",      label: "Banner",             icon: ImageIcon },
   { href: "/admin/gallery",      label: "Gallery",            icon: Images },
@@ -61,17 +75,51 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         {/* Nav */}
-        <nav className="px-3 py-4 flex-1">
+        <nav className="px-3 py-4 flex-1 overflow-y-auto">
           {navItems.map((item) => {
             const Icon = item.icon;
-            const active = pathname.startsWith(item.href);
+            
+            if (item.subItems) {
+              const isActiveGroup = item.subItems.some(sub => pathname.startsWith(sub.href));
+              return (
+                <div key={item.label} className="mb-2">
+                  <div className={`admin-nav-item ${isActiveGroup ? "active" : ""}`} style={{ pointerEvents: 'none', opacity: 0.8 }}>
+                    <Icon size={18} />
+                    {item.label}
+                  </div>
+                  <div className="ml-7 mt-1 flex flex-col gap-1">
+                    {item.subItems.map(sub => {
+                      const isSubActive = pathname === sub.href || pathname.startsWith(sub.href + '/');
+                      return (
+                        <Link
+                          key={sub.href}
+                          href={sub.href}
+                          onClick={() => setSidebarOpen(false)}
+                          className={`flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-all hover:bg-[var(--bg-secondary)]`}
+                          style={{
+                            color: isSubActive ? 'var(--text-primary)' : 'var(--text-secondary)',
+                            background: isSubActive ? 'var(--bg-secondary)' : 'transparent',
+                            border: isSubActive ? '1px solid var(--border)' : '1px solid transparent'
+                          }}
+                        >
+                          {isSubActive && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                          {sub.label}
+                        </Link>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            }
+
+            const active = item.href && pathname.startsWith(item.href);
             return (
               <Link
-                key={item.href}
-                href={item.href}
+                key={item.href || item.label}
+                href={item.href || "#"}
                 onClick={() => setSidebarOpen(false)}
                 className={`admin-nav-item mb-1 ${active ? "active" : ""}`}
-                id={`admin-nav-${item.label.toLowerCase()}`}
+                id={`admin-nav-${item.label.toLowerCase().replace(/\\s+/g, '-')}`}
               >
                 <Icon size={18} />
                 {item.label}
@@ -113,7 +161,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <Menu size={16} />
           </button>
           <div className="hidden md:block text-sm font-medium" style={{ color: "var(--text-secondary)" }}>
-            {navItems.find((n) => pathname.startsWith(n.href))?.label ?? "Admin Panel"}
+            {navItems.find(n => n.href && pathname.startsWith(n.href))?.label ?? 
+             navItems.flatMap(n => n.subItems || []).find(sub => pathname.startsWith(sub.href))?.label ?? 
+             "Admin Panel"}
           </div>
           <div className="flex items-center gap-2 ml-auto">
             <div className="text-sm font-medium" style={{ color: "var(--text-secondary)" }}>

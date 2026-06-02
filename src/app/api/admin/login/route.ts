@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getAdminByUsername, updateAdminLastLogin } from "@/lib/supabase";
 import { SignJWT } from "jose";
+import bcrypt from "bcryptjs";
 
 const JWT_SECRET = new TextEncoder().encode(
   process.env.JWT_SECRET ?? "rajadigital-secret-change-in-production"
@@ -28,15 +29,18 @@ export async function POST(req: Request) {
     }
 
     // Verifikasi password
-    // NOTE: Di production, gunakan bcrypt verify:
-    // const valid = await bcrypt.compare(password, admin.password_hash);
-    // Untuk development sementara: cek plaintext (GANTI sebelum production!)
-    const passwordValid =
-      admin.password_hash === password ||           // dev fallback
-      admin.password_hash.startsWith("$2") === false; // non-hashed
+    let passwordValid = false;
+
+    if (admin.password_hash.startsWith("$2")) {
+      // Jika hash valid bcrypt, gunakan compare
+      passwordValid = await bcrypt.compare(password, admin.password_hash);
+    } else {
+      // Fallback sementara jika database masih plaintext (sebelum di-migrate penuh)
+      passwordValid = admin.password_hash === password;
+    }
 
     // Jika password tidak cocok
-    if (!passwordValid && password !== "admin123") {
+    if (!passwordValid) {
       return NextResponse.json(
         { error: "Username atau password salah" },
         { status: 401 }

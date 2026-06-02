@@ -29,6 +29,7 @@ export interface Game {
   isNew?:           boolean;
   isHot?:           boolean;
   sortOrder:        number;
+  rateBongkar?:     number | null;
 }
 
 // Cast JSON data to typed array

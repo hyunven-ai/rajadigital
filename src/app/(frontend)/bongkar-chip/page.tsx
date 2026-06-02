@@ -11,9 +11,7 @@ const BANK_LIST = [
   "GoPay", "OVO", "DANA", "ShopeePay", "LinkAja",
 ];
 
-const HARGA_INFO = [
-  { label: "Rate Bongkar", value: "Rp 59.000 / 1B", highlight: true },
-];
+// Harga info moved inside component for dynamic rendering
 
 const STATUS_CFG: Record<string, { label: string; color: string; icon: any }> = {
   pending: { label: "Pending", color: "#f59e0b", icon: Clock },
@@ -52,13 +50,13 @@ export default function BongkarChipPage() {
   const [error, setError] = useState<string | null>(null);
 
   // Daftar game dari API
-  const [gameList, setGameList] = useState<string[]>([]);
+  const [gameList, setGameList] = useState<any[]>([]);
   useEffect(() => {
     fetch("/api/games?limit=100")
       .then(r => r.json())
       .then(d => {
-        const names: string[] = (d.games ?? []).map((g: any) => g.name).filter(Boolean);
-        setGameList(names.sort());
+        const games = (d.games ?? []).filter((g: any) => g.name);
+        setGameList(games.sort((a: any, b: any) => a.name.localeCompare(b.name)));
       })
       .catch(() => { });
   }, []);
@@ -173,6 +171,15 @@ Mohon proses request bongkar chip saya. Terima kasih! 🙏`;
       setCekLoading(false);
     }
   };
+
+  const selectedGame = gameList.find(g => g.name === form.game_name);
+  const rateText = selectedGame
+    ? (selectedGame.rateBongkar ? `Rp ${selectedGame.rateBongkar.toLocaleString("id-ID")} / 1B` : "Rp 59.000 / 1B")
+    : "Pilih game untuk melihat rate";
+
+  const HARGA_INFO = [
+    { label: "Rate Bongkar", value: rateText, highlight: true },
+  ];
 
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-primary)", paddingBottom: "100px" }}>
@@ -355,7 +362,7 @@ Mohon proses request bongkar chip saya. Terima kasih! 🙏`;
                       >
                         <option value="" disabled>— Pilih Game —</option>
                         {gameList.map(g => (
-                          <option key={g} value={g}>{g}</option>
+                          <option key={g.name} value={g.name}>{g.name}</option>
                         ))}
                       </select>
                       <div style={{

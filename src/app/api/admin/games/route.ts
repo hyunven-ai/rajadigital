@@ -23,6 +23,7 @@ function rowToGame(row: Record<string, unknown>) {
     isHot:           row.is_hot ?? false,
     isNew:           row.is_new ?? false,
     sortOrder:       row.sort_order ?? 0,
+    rateBongkar:     row.rate_bongkar ?? null,
   };
 }
 
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
     const {
       name, publisher, description, emoji, currency, currencyIcon,
       extraCurrencies, color, gradient, isActive, isHot, isNew,
-      sortOrder, cover,
+      sortOrder, cover, rateBongkar,
     } = body;
 
     if (!name || !currency) {
@@ -86,6 +87,7 @@ export async function POST(req: NextRequest) {
       is_hot:           isHot ?? false,
       is_new:           isNew ?? false,
       sort_order:       sortOrder ?? count + 1,
+      rate_bongkar:     rateBongkar ?? null,
     };
 
     const { data, error } = await db.from("games").insert(insert).select().single();

@@ -24,6 +24,7 @@ function rowToGame(row: Record<string, unknown>) {
     isHot:           row.is_hot ?? false,
     isNew:           row.is_new ?? false,
     sortOrder:       row.sort_order ?? 0,
+    rateBongkar:     row.rate_bongkar ?? null,
   };
 }
 

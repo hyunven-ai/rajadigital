@@ -30,6 +30,7 @@ export async function PATCH(
     if (body.isHot           !== undefined) update.is_hot           = body.isHot;
     if (body.isNew           !== undefined) update.is_new           = body.isNew;
     if (body.sortOrder       !== undefined) update.sort_order       = body.sortOrder;
+    if (body.rateBongkar     !== undefined) update.rate_bongkar     = body.rateBongkar;
 
     const { data, error } = await db
       .from("games")

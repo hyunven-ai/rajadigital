@@ -35,14 +35,25 @@ export async function POST(req: NextRequest) {
     const db = createServerSupabase();
 
     // Cek duplikat username
-    const { data: existing } = await db
+    const { data: existingUsername } = await db
       .from("admins")
       .select("id")
       .eq("username", username)
       .maybeSingle();
 
-    if (existing) {
+    if (existingUsername) {
       return NextResponse.json({ error: "Username sudah digunakan" }, { status: 409 });
+    }
+
+    // Cek duplikat email
+    const { data: existingEmail } = await db
+      .from("admins")
+      .select("id")
+      .eq("email", email)
+      .maybeSingle();
+
+    if (existingEmail) {
+      return NextResponse.json({ error: "Email sudah digunakan" }, { status: 409 });
     }
 
     const password_hash = await bcrypt.hash(password, 10);
@@ -55,8 +66,8 @@ export async function POST(req: NextRequest) {
 
     if (error) throw error;
     return NextResponse.json({ admin: data }, { status: 201 });
-  } catch (err) {
+  } catch (err: any) {
     console.error("Create admin error:", err);
-    return NextResponse.json({ error: "Internal server error" }, { status: 500 });
+    return NextResponse.json({ error: err.message || "Internal server error" }, { status: 500 });
   }
 }

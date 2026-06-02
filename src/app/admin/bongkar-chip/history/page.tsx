@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { GAMES } from "@/lib/games";
 import {
   Search, RefreshCw, Trash2, CheckCircle, XCircle, Clock,
   Loader2, CalendarDays, FilterX, ChevronDown, Copy, Check,
@@ -68,6 +69,7 @@ export default function AdminBongkarChipPage() {
   const [rows, setRows]         = useState<BongkarRequest[]>([]);
   const [filter, setFilter]     = useState("selesai,batal");
   const [gameFilter, setGameFilter] = useState("");
+  const [bankFilter, setBankFilter] = useState("");
   const [search, setSearch]     = useState("");
   const [loading, setLoading]   = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
@@ -136,13 +138,15 @@ export default function AdminBongkarChipPage() {
 
   /* filtered */
   const uniqueGames = Array.from(new Set(rows.map(r => r.game_name).filter(Boolean))).sort() as string[];
+  const activeGames = GAMES.filter(g => g.isActive);
 
   const filtered = rows.filter(r => {
     const q = search.toLowerCase();
     const matchSearch = !q || r.invoice_id.toLowerCase().includes(q) || r.player_id.toLowerCase().includes(q)
       || r.whatsapp.includes(q) || r.nama_rekening.toLowerCase().includes(q) || r.bank.toLowerCase().includes(q);
     const matchGame = !gameFilter || r.game_name === gameFilter;
-    return matchSearch && matchGame;
+    const matchBank = !bankFilter || r.bank === bankFilter;
+    return matchSearch && matchGame && matchBank;
   });
 
   /* limit / pagination */
@@ -369,8 +373,31 @@ export default function AdminBongkarChipPage() {
               }}
             >
               <option value="">🎮 Semua Game</option>
-              {uniqueGames.map(g => (
-                <option key={g} value={g}>{g}</option>
+              {activeGames.map(g => (
+                <option key={g.id} value={g.name}>{g.name}</option>
+              ))}
+            </select>
+            <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", fontSize: 10, color: "var(--text-muted)" }}>▼</span>
+          </div>
+          {/* Bank filter dropdown */}
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <select
+              id="bongkar-bank-filter"
+              value={bankFilter}
+              onChange={e => setBankFilter(e.target.value)}
+              style={{
+                height: "100%", padding: "10px 32px 10px 12px",
+                borderRadius: 12, fontSize: 12, fontWeight: 600,
+                background: bankFilter ? "rgba(16,185,129,0.12)" : "var(--bg-secondary)",
+                border: bankFilter ? "1px solid rgba(16,185,129,0.4)" : "1px solid var(--border)",
+                color: bankFilter ? "#10b981" : "var(--text-secondary)",
+                outline: "none", cursor: "pointer", appearance: "none",
+                minWidth: 140,
+              }}
+            >
+              <option value="">🏦 Semua Bank</option>
+              {BANK_LIST.map(b => (
+                <option key={b} value={b}>{b}</option>
               ))}
             </select>
             <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", fontSize: 10, color: "var(--text-muted)" }}>▼</span>

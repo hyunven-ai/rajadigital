@@ -2,6 +2,10 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
+import { supabase } from "@/lib/supabase";
+import { GAMES } from "@/lib/games";
+import { useAlarm } from "@/hooks/useAlarm";
+import AlarmControl from "@/components/AlarmControl";
 import {
   Search, RefreshCw, Trash2, CheckCircle, XCircle, Clock,
   Loader2, CalendarDays, FilterX, ChevronDown, Copy, Check,
@@ -49,6 +53,7 @@ const BANK_LIST = [
 ];
 
 const EMPTY_FORM = {
+  game_name: "",
   player_id: "",
   nominal_bongkar: "",
   bank: "",
@@ -68,12 +73,17 @@ export default function AdminBongkarChipPage() {
   const [rows, setRows]         = useState<BongkarRequest[]>([]);
   const [filter, setFilter]     = useState("pending,diproses");
   const [gameFilter, setGameFilter] = useState("");
+  const [bankFilter, setBankFilter] = useState("");
   const [search, setSearch]     = useState("");
   const [loading, setLoading]   = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [copied, setCopied]     = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BongkarRequest | null>(null);
   const [deleting, setDeleting] = useState(false);
+
+  const pendingCount = rows.filter(r => r.status === "pending").length;
+  const getPending   = useCallback(() => pendingCount, [pendingCount]);
+  const { config: alarmConfig, updateConfig, testAlarm, unlock, triggerImmediate } = useAlarm(getPending);
 
   // Form tambah manual
   const [showForm, setShowForm]   = useState(false);
@@ -134,15 +144,58 @@ export default function AdminBongkarChipPage() {
 
   useEffect(() => { if (showLogs) fetchLogs(); }, [showLogs, fetchLogs]);
 
+  /* realtime */
+  const [realtimeConnected, setRealtimeConnected] = useState(false);
+
+  useEffect(() => {
+    const channel = supabase
+      .channel("admin-bongkar-chip")
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        "postgres_changes" as any,
+        { event: "INSERT", schema: "public", table: "bongkar_chip_requests" },
+        (payload: { new: BongkarRequest }) => {
+          const r = payload.new;
+          setRows(prev => {
+            if (prev.some(x => x.id === r.id)) return prev;
+            return [r, ...prev];
+          });
+          triggerImmediate("Bongkar Chip Baru!", `Request ${r.nominal_bongkar}B dari ${r.player_id}`);
+        }
+      )
+      .on(
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        "postgres_changes" as any,
+        { event: "UPDATE", schema: "public", table: "bongkar_chip_requests" },
+        (payload: { new: BongkarRequest }) => {
+          const updated = payload.new;
+          if (updated.status === "selesai" || updated.status === "batal") {
+             setRows(prev => prev.filter(x => x.id !== updated.id));
+          } else {
+             setRows(prev => prev.map(x => x.id === updated.id ? updated : x));
+          }
+        }
+      )
+      .subscribe((status) => {
+        setRealtimeConnected(status === "SUBSCRIBED");
+      });
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
   /* filtered */
   const uniqueGames = Array.from(new Set(rows.map(r => r.game_name).filter(Boolean))).sort() as string[];
+  const activeGames = GAMES.filter(g => g.isActive);
 
   const filtered = rows.filter(r => {
     const q = search.toLowerCase();
     const matchSearch = !q || r.invoice_id.toLowerCase().includes(q) || r.player_id.toLowerCase().includes(q)
       || r.whatsapp.includes(q) || r.nama_rekening.toLowerCase().includes(q) || r.bank.toLowerCase().includes(q);
     const matchGame = !gameFilter || r.game_name === gameFilter;
-    return matchSearch && matchGame;
+    const matchBank = !bankFilter || r.bank === bankFilter;
+    return matchSearch && matchGame && matchBank;
   });
 
   /* limit / pagination */
@@ -168,7 +221,11 @@ export default function AdminBongkarChipPage() {
       return;
     }
     setUpdating(id);
-    setRows(prev => prev.map(r => r.id === id ? { ...r, status: status as BongkarRequest["status"] } : r));
+    if (status === "selesai" || status === "batal") {
+      setRows(prev => prev.filter(r => r.id !== id));
+    } else {
+      setRows(prev => prev.map(r => r.id === id ? { ...r, status: status as BongkarRequest["status"] } : r));
+    }
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") ?? "" : "";
       const res = await fetch(`/api/bongkar-chip/${id}`, {
@@ -189,7 +246,7 @@ export default function AdminBongkarChipPage() {
     if (!payModal) return;
     setPaySubmitting(true);
     const nominalNum = payModal.nominal ? parseInt(payModal.nominal) : undefined;
-    setRows(prev => prev.map(r => r.id === payModal.id ? { ...r, status: "selesai", nominal_pembayaran: nominalNum } : r));
+    setRows(prev => prev.filter(r => r.id !== payModal.id));
     try {
       await fetch(`/api/bongkar-chip/${payModal.id}`, {
         method: "PATCH", headers: { "Content-Type": "application/json" },
@@ -212,7 +269,11 @@ export default function AdminBongkarChipPage() {
           body: JSON.stringify({ status: bulkStatus }),
         })
       ));
-      setRows(prev => prev.map(r => ids.includes(r.id) ? { ...r, status: bulkStatus as BongkarRequest["status"] } : r));
+      if (bulkStatus === "selesai" || bulkStatus === "batal") {
+        setRows(prev => prev.filter(r => !ids.includes(r.id)));
+      } else {
+        setRows(prev => prev.map(r => ids.includes(r.id) ? { ...r, status: bulkStatus as BongkarRequest["status"] } : r));
+      }
       setSelected(new Set());
     } catch { fetch_(); }
     finally { setBulkUpdating(false); }
@@ -249,6 +310,7 @@ export default function AdminBongkarChipPage() {
   /* handle save manual */
   const handleSave = async () => {
     setFormError("");
+    if (!form.game_name)             return setFormError("Pilih game terlebih dahulu.");
     if (!form.player_id.trim())      return setFormError("Player ID wajib diisi.");
     if (!form.nominal_bongkar)       return setFormError("Nominal bongkar wajib diisi.");
     const nom = parseInt(form.nominal_bongkar);
@@ -267,6 +329,7 @@ export default function AdminBongkarChipPage() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          game_name:       form.game_name,
           player_id:       form.player_id.trim(),
           nominal_bongkar: nom,
           bank:            form.bank,
@@ -300,7 +363,6 @@ export default function AdminBongkarChipPage() {
   };
 
   const copy = (text: string, key: string) => { navigator.clipboard.writeText(text); setCopied(key); setTimeout(() => setCopied(null), 2000); };
-  const pendingCount = rows.filter(r => r.status === "pending").length;
 
   return (
     <>
@@ -310,9 +372,31 @@ export default function AdminBongkarChipPage() {
           <h1 className="text-2xl font-black mb-1 flex items-center gap-2" style={{ fontFamily: "var(--font-outfit)", color: "var(--text-primary)" }}>
             <Zap size={22} style={{ color: "#f87171" }} /> Bongkar Chip Masuk
           </h1>
-          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Kelola dan proses semua request bongkar chip</p>
+          <p className="text-sm flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
+            Kelola dan proses semua request bongkar chip
+            <span
+              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold"
+              style={
+                realtimeConnected
+                  ? { background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "#10b981" }
+                  : { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444" }
+              }
+            >
+              <span
+                style={{
+                  width: 6, height: 6, borderRadius: "50%",
+                  background: realtimeConnected ? "#10b981" : "#ef4444",
+                  display: "inline-block",
+                  boxShadow: realtimeConnected ? "0 0 6px #10b981" : "none",
+                  animation: realtimeConnected ? "pulse 2s ease-in-out infinite" : "none",
+                }}
+              />
+              {realtimeConnected ? "Realtime aktif" : "Menghubungkan..."}
+            </span>
+          </p>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <AlarmControl config={alarmConfig} onChange={updateConfig} onTest={testAlarm} pendingCount={pendingCount} />
           <Link
             href="/admin/bongkar-chip/analytics"
             className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-80"
@@ -373,8 +457,31 @@ export default function AdminBongkarChipPage() {
               }}
             >
               <option value="">🎮 Semua Game</option>
-              {uniqueGames.map(g => (
-                <option key={g} value={g}>{g}</option>
+              {activeGames.map(g => (
+                <option key={g.id} value={g.name}>{g.name}</option>
+              ))}
+            </select>
+            <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", fontSize: 10, color: "var(--text-muted)" }}>▼</span>
+          </div>
+          {/* Bank filter dropdown */}
+          <div style={{ position: "relative", flexShrink: 0 }}>
+            <select
+              id="bongkar-bank-filter"
+              value={bankFilter}
+              onChange={e => setBankFilter(e.target.value)}
+              style={{
+                height: "100%", padding: "10px 32px 10px 12px",
+                borderRadius: 12, fontSize: 12, fontWeight: 600,
+                background: bankFilter ? "rgba(16,185,129,0.12)" : "var(--bg-secondary)",
+                border: bankFilter ? "1px solid rgba(16,185,129,0.4)" : "1px solid var(--border)",
+                color: bankFilter ? "#10b981" : "var(--text-secondary)",
+                outline: "none", cursor: "pointer", appearance: "none",
+                minWidth: 140,
+              }}
+            >
+              <option value="">🏦 Semua Bank</option>
+              {BANK_LIST.map(b => (
+                <option key={b} value={b}>{b}</option>
               ))}
             </select>
             <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", fontSize: 10, color: "var(--text-muted)" }}>▼</span>
@@ -885,6 +992,16 @@ export default function AdminBongkarChipPage() {
                   <AlertCircle size={14} /> {formError}
                 </div>
               )}
+
+              {/* Game */}
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>🎮 Game *</label>
+                <select id="form-bongkar-game" className="input-styled"
+                  value={form.game_name} onChange={e => setForm(f => ({ ...f, game_name: e.target.value }))}>
+                  <option value="" disabled>— Pilih Game —</option>
+                  {activeGames.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
+                </select>
+              </div>
 
               {/* Player ID */}
               <div>

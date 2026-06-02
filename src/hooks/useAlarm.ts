@@ -10,14 +10,14 @@ export type AlarmSound = "beep" | "chime" | "urgent";
 
 export interface AlarmConfig {
   enabled: boolean;
-  intervalMinutes: number; // 1 | 2 | 3 | 5 | 10
+  intervalSeconds: number; // 5 | 10 | 30 | 60
   sound: AlarmSound;
   volume: number; // 0.0 – 1.0
 }
 
 const DEFAULT_CONFIG: AlarmConfig = {
   enabled: true,
-  intervalMinutes: 2,
+  intervalSeconds: 5,
   sound: "chime",
   volume: 0.7,
 };
@@ -111,13 +111,16 @@ export function useAlarm(getPendingCount: () => number) {
     });
   }, []);
 
-  /* ── Unlock AudioContext (harus dipanggil dari event user) ── */
-  const unlock = useCallback(() => {
+  /* ── Unlock AudioContext & Notifications ── */
+  const unlock = useCallback(async () => {
     if (unlockedRef.current) return;
     try {
       const ctx = getAudioCtx();
       if (ctx.state === "suspended") ctx.resume();
       unlockedRef.current = true;
+      if ("Notification" in window && Notification.permission === "default") {
+        await Notification.requestPermission();
+      }
     } catch {}
   }, []);
 
@@ -142,16 +145,28 @@ export function useAlarm(getPendingCount: () => number) {
     playAlarm();
   }, [unlock, playAlarm]);
 
+  /* ── Trigger instan + Push Notification ── */
+  const triggerImmediate = useCallback((title: string, body: string) => {
+    if (!config.enabled) return;
+    playAlarm();
+    if ("Notification" in window && Notification.permission === "granted") {
+      try {
+        const n = new Notification(title, { body });
+        n.onclick = () => { window.focus(); n.close(); };
+      } catch (e) {}
+    }
+  }, [config.enabled, playAlarm]);
+
   /* ── Periodic alarm untuk pending yang belum diproses ── */
   useEffect(() => {
     if (intervalRef.current) clearInterval(intervalRef.current);
     if (!config.enabled) return;
 
-    const ms = config.intervalMinutes * 60 * 1000;
+    // Loop sangat cepat sampai dilihat/diproses
+    const ms = (config.intervalSeconds || 5) * 1000;
     intervalRef.current = setInterval(() => {
       const pending = getPendingCount();
       if (pending > 0) {
-        console.log(`[Alarm] ${pending} transaksi pending belum diproses → bunyi!`);
         playAlarm();
       }
     }, ms);
@@ -159,7 +174,7 @@ export function useAlarm(getPendingCount: () => number) {
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [config.enabled, config.intervalMinutes, getPendingCount, playAlarm]);
+  }, [config.enabled, config.intervalSeconds, getPendingCount, playAlarm]);
 
-  return { config, updateConfig, playAlarm, testAlarm, unlock };
+  return { config, updateConfig, playAlarm, testAlarm, unlock, triggerImmediate };
 }

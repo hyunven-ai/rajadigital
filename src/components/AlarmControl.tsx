@@ -12,11 +12,10 @@ interface Props {
 }
 
 const INTERVAL_OPTIONS = [
-  { value: 1,  label: "Setiap 1 menit"  },
-  { value: 2,  label: "Setiap 2 menit"  },
-  { value: 3,  label: "Setiap 3 menit"  },
-  { value: 5,  label: "Setiap 5 menit"  },
-  { value: 10, label: "Setiap 10 menit" },
+  { value: 5,  label: "Setiap 5 detik (Cepat)"  },
+  { value: 10, label: "Setiap 10 detik"  },
+  { value: 30, label: "Setiap 30 detik"  },
+  { value: 60, label: "Setiap 60 detik"  },
 ];
 
 const SOUND_OPTIONS: { value: AlarmSound; label: string; desc: string }[] = [
@@ -119,16 +118,16 @@ export default function AlarmControl({ config, onChange, onTest, pendingCount = 
                       <button
                         key={opt.value}
                         id={`interval-${opt.value}`}
-                        onClick={() => onChange({ intervalMinutes: opt.value })}
+                        onClick={() => onChange({ intervalSeconds: opt.value })}
                         className="flex items-center justify-between px-3 py-2 rounded-lg text-xs font-medium transition-all text-left"
                         style={
-                          config.intervalMinutes === opt.value
+                          config.intervalSeconds === opt.value
                             ? { background: "rgba(251,191,36,0.15)", color: "#fbbf24", border: "1px solid rgba(251,191,36,0.35)" }
                             : { background: "var(--bg-secondary)", color: "var(--text-secondary)", border: "1px solid transparent" }
                         }
                       >
                         {opt.label}
-                        {config.intervalMinutes === opt.value && (
+                        {config.intervalSeconds === opt.value && (
                           <span className="text-xs">✓</span>
                         )}
                       </button>

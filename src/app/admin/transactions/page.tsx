@@ -120,7 +120,7 @@ export default function AdminTransactionsPage() {
 
   const pendingCount = transactions.filter(t => t.status === "pending").length;
   const getPending   = useCallback(() => pendingCount, [pendingCount]);
-  const { config: alarmConfig, updateConfig, testAlarm, unlock } = useAlarm(getPending);
+  const { config: alarmConfig, updateConfig, testAlarm, unlock, triggerImmediate } = useAlarm(getPending);
 
   /* ── Fetch transaksi ── */
   const fetchTransactions = useCallback(async () => {
@@ -159,11 +159,15 @@ export default function AdminTransactionsPage() {
         (payload: { new: Transaction }) => {
           console.log("[Realtime] INSERT received:", payload.new);
           const tx = payload.new;
-          setTransactions(prev => [tx, ...prev]);
+          setTransactions(prev => {
+            if (prev.some(t => t.id === tx.id)) return prev;
+            return [tx, ...prev];
+          });
           setNewIds(prev => new Set(prev).add(tx.id));
           setTimeout(() => setNewIds(prev => { const n = new Set(prev); n.delete(tx.id); return n; }), 4000);
           setNewTxToast({ name: tx.username || tx.game_id, game: tx.game_name, price: tx.product_price });
           setTimeout(() => setNewTxToast(null), 5000);
+          triggerImmediate("Transaksi Baru Masuk!", `Pesanan ${tx.game_name} Rp ${tx.product_price}`);
         }
       )
       .on(
@@ -173,7 +177,11 @@ export default function AdminTransactionsPage() {
         (payload: { new: Transaction }) => {
           console.log("[Realtime] UPDATE received:", payload.new);
           const updated = payload.new;
-          setTransactions(prev => prev.map(t => t.id === updated.id ? updated : t));
+          if (updated.status === "selesai" || updated.status === "batal") {
+            setTransactions(prev => prev.filter(t => t.id !== updated.id));
+          } else {
+            setTransactions(prev => prev.map(t => t.id === updated.id ? updated : t));
+          }
         }
       )
       .subscribe((status, err) => {
@@ -226,9 +234,13 @@ export default function AdminTransactionsPage() {
           body: JSON.stringify({ status: bulkStatus }),
         })
       ));
-      setTransactions(prev => prev.map(t =>
-        ids.includes(t.id) ? { ...t, status: bulkStatus as Transaction["status"] } : t
-      ));
+      if (bulkStatus === "selesai" || bulkStatus === "batal") {
+        setTransactions(prev => prev.filter(t => !ids.includes(t.id)));
+      } else {
+        setTransactions(prev => prev.map(t =>
+          ids.includes(t.id) ? { ...t, status: bulkStatus as Transaction["status"] } : t
+        ));
+      }
       setSelectedIds(new Set());
     } catch { fetchTransactions(); }
     finally { setBulkUpdating(false); }
@@ -420,7 +432,11 @@ export default function AdminTransactionsPage() {
   /* ── Update status ── */
   const updateStatus = async (id: string, status: string) => {
     setUpdating(id);
-    setTransactions(prev => prev.map(t => t.id === id ? { ...t, status: status as Transaction["status"] } : t));
+    if (status === "selesai" || status === "batal") {
+      setTransactions(prev => prev.filter(t => t.id !== id));
+    } else {
+      setTransactions(prev => prev.map(t => t.id === id ? { ...t, status: status as Transaction["status"] } : t));
+    }
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") ?? "" : "";
       await fetch(`/api/admin/transactions/${id}`, {
@@ -636,8 +652,8 @@ export default function AdminTransactionsPage() {
               }}
             >
               <option value="">🎮 Semua Game</option>
-              {uniqueGames.map(g => (
-                <option key={g} value={g}>{g}</option>
+              {activeGames.map(g => (
+                <option key={g.id} value={g.name}>{g.name}</option>
               ))}
             </select>
             <span style={{ position: "absolute", right: 10, top: "50%", transform: "translateY(-50%)", pointerEvents: "none", fontSize: 10, color: "var(--text-muted)" }}>▼</span>

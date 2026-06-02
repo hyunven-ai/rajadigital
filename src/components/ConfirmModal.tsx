@@ -558,7 +558,7 @@ export default function ConfirmModal({
             {/* Upload bukti transfer (opsional) */}
             <div className="mb-5">
               <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-secondary)" }}>
-                📸 Bukti Transfer <span style={{ color: "var(--text-muted)", fontWeight: 400 }}>(opsional)</span>
+                📸 Bukti Transfer <span style={{ color: "#ef4444", fontWeight: 700 }}>*</span>
               </p>
               <input
                 ref={proofInputRef}
@@ -614,11 +614,11 @@ export default function ConfirmModal({
                 Kembali
               </button>
               <button
-                onClick={() => { if (paid) onConfirm(hasQris && paid, paymentProof); }}
+                onClick={() => { if (paid && paymentProof) onConfirm(hasQris && paid, paymentProof); }}
                 id="modal-confirm-btn"
-                disabled={!paid || isLoading}
+                disabled={!paid || !paymentProof || isLoading}
                 className="flex-1 btn-gold flex items-center justify-center gap-2"
-                style={{ padding: "12px", opacity: (paid && !isLoading) ? 1 : 0.45, cursor: (paid && !isLoading) ? "pointer" : "not-allowed" }}
+                style={{ padding: "12px", opacity: (paid && paymentProof && !isLoading) ? 1 : 0.45, cursor: (paid && paymentProof && !isLoading) ? "pointer" : "not-allowed" }}
               >
                 {isLoading ? (
                   <><Loader2 size={16} className="animate-spin" /> Memproses...</>

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import Link from "next/link";
-import { Home, Send, CheckCircle, AlertCircle, Loader2, Search, Clock, XCircle, Zap } from "lucide-react";
+import { Home, Send, CheckCircle, AlertCircle, Loader2, Search, Clock, XCircle, Zap, Copy } from "lucide-react";
 
 const BANK_LIST = [
   "BCA", "BNI", "BRI", "Mandiri", "BSI", "CIMB Niaga",
@@ -48,6 +48,13 @@ export default function BongkarChipPage() {
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [copySuccess, setCopySuccess] = useState(false);
+
+  const handleCopyId = (tujuanId: string) => {
+    navigator.clipboard.writeText(tujuanId);
+    setCopySuccess(true);
+    setTimeout(() => setCopySuccess(false), 2000);
+  };
 
   // Daftar game dari API
   const [gameList, setGameList] = useState<any[]>([]);
@@ -277,6 +284,26 @@ Mohon proses request bongkar chip saya. Terima kasih! 🙏`;
               {/* Form body */}
               <div style={{ padding: "24px 28px 32px" }}>
                 {/* Info boxes */}
+                {selectedGame?.tujuanIdBongkar && (
+                  <div style={{
+                    border: "1px solid var(--border)",
+                    borderRadius: "14px", marginBottom: "16px", overflow: "hidden",
+                    padding: "14px 16px", background: "rgba(16, 185, 129, 0.05)"
+                  }}>
+                    <p style={{ fontWeight: 700, fontSize: "13px", color: "var(--text-primary)", marginBottom: "8px" }}>
+                      Tujuan ID Bongkar
+                    </p>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", background: "var(--bg-secondary)", border: "1px solid var(--border)", borderRadius: "10px", padding: "10px 14px" }}>
+                      <span style={{ fontSize: "18px", fontWeight: 900, color: "var(--gold-light, #f59e0b)", letterSpacing: "1px" }}>{selectedGame.tujuanIdBongkar}</span>
+                      <button type="button" onClick={() => handleCopyId(selectedGame.tujuanIdBongkar!)} style={{ display: "flex", alignItems: "center", gap: "6px", background: "rgba(251, 191, 36, 0.15)", border: "1px solid rgba(251, 191, 36, 0.3)", padding: "6px 12px", borderRadius: "8px", color: "#f59e0b", fontSize: "12px", fontWeight: 700, cursor: "pointer", transition: "all 0.2s" }}>
+                        {copySuccess ? <CheckCircle size={14} /> : <Copy size={14} />}
+                        {copySuccess ? "Disalin!" : "Copy ID"}
+                      </button>
+                    </div>
+                    <p style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: "8px" }}>Silakan transfer ke ID di atas sebelum mengisi form.</p>
+                  </div>
+                )}
+
                 <div style={{
                   border: "1px solid var(--border)",
                   borderRadius: "14px", marginBottom: "16px", overflow: "hidden",

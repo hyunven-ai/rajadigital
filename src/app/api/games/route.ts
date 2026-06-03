@@ -25,6 +25,7 @@ function rowToGame(row: Record<string, unknown>) {
     isNew:           row.is_new ?? false,
     sortOrder:       row.sort_order ?? 0,
     rateBongkar:     row.rate_bongkar ?? null,
+    tujuanIdBongkar: row.tujuan_id_bongkar ?? null,
   };
 }
 

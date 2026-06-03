@@ -32,6 +32,7 @@ const EMPTY_FORM: GameForm = {
   color: "#fbbf24", gradient: "linear-gradient(135deg, #7c3aed 0%, #4c1d95 100%)",
   isActive: true, isHot: false, isNew: false, sortOrder: 0,
   rateBongkar: null,
+  tujuanIdBongkar: null,
 };
 
 export default function AdminGamesPage() {
@@ -239,6 +240,7 @@ export default function AdminGamesPage() {
         isActive: form.isActive, isHot: form.isHot, isNew: form.isNew,
         sortOrder: form.sortOrder, cover: coverPath,
         rateBongkar: form.rateBongkar,
+        tujuanIdBongkar: form.tujuanIdBongkar,
       };
 
       if (editing) {
@@ -715,6 +717,12 @@ export default function AdminGamesPage() {
                 <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Urutan Tampil</label>
                 <input type="number" className="input-styled" placeholder="1"
                   value={form.sortOrder} onChange={(e) => setForm({ ...form, sortOrder: Number(e.target.value) })} />
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>Tujuan ID Bongkar</label>
+                <input type="text" className="input-styled" placeholder="Misal: 12345678"
+                  value={form.tujuanIdBongkar ?? ""} onChange={(e) => setForm({ ...form, tujuanIdBongkar: e.target.value || null })} />
               </div>
 
               <div>

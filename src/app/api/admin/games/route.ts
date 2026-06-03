@@ -24,6 +24,7 @@ function rowToGame(row: Record<string, unknown>) {
     isNew:           row.is_new ?? false,
     sortOrder:       row.sort_order ?? 0,
     rateBongkar:     row.rate_bongkar ?? null,
+    tujuanIdBongkar: row.tujuan_id_bongkar ?? null,
   };
 }
 
@@ -51,7 +52,7 @@ export async function POST(req: NextRequest) {
     const {
       name, publisher, description, emoji, currency, currencyIcon,
       extraCurrencies, color, gradient, isActive, isHot, isNew,
-      sortOrder, cover, rateBongkar,
+      sortOrder, cover, rateBongkar, tujuanIdBongkar,
     } = body;
 
     if (!name || !currency) {
@@ -88,6 +89,7 @@ export async function POST(req: NextRequest) {
       is_new:           isNew ?? false,
       sort_order:       sortOrder ?? count + 1,
       rate_bongkar:     rateBongkar ?? null,
+      tujuan_id_bongkar: tujuanIdBongkar ?? null,
     };
 
     const { data, error } = await db.from("games").insert(insert).select().single();

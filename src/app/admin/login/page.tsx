@@ -26,6 +26,7 @@ export default function AdminLoginPage() {
       const data = await res.json();
       if (!res.ok) { setError(data.error || "Login gagal"); return; }
       localStorage.setItem("admin_token", data.token);
+      localStorage.setItem("admin_username", data.username);
       router.push("/admin/dashboard");
     } catch {
       setError("Gagal terhubung ke server");

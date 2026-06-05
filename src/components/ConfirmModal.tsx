@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import {
   AlertTriangle, X, Crown, Zap, Loader2,
   QrCode, Copy, Check, CheckCircle2, Download, ZoomIn, ZoomOut,
-  ArrowRight, MessageCircle,
+  ArrowRight, MessageCircle, Clock, Timer,
 } from "lucide-react";
 import { formatCurrency } from "@/lib/utils";
 import type { Product } from "@/types";
@@ -180,7 +180,6 @@ export default function ConfirmModal({
   const [qris, setQris] = useState<QrisData | null>(null);
   const [qrisLoading, setQrisLoading] = useState(true);
   // step: "detail" | "qris"
-  // If no QRIS active → skip straight to qris (confirm inline)
   const [step, setStep] = useState<"detail" | "qris">("detail");
   const [paid, setPaid] = useState(false);
   const [copied, setCopied] = useState(false);
@@ -190,10 +189,37 @@ export default function ConfirmModal({
   const [proofPreview, setProofPreview] = useState<string | null>(null);
   const proofInputRef = useRef<HTMLInputElement>(null);
 
+  // ── DOKU Dynamic QRIS State ──
+  const [dokuQrUrl, setDokuQrUrl] = useState<string | null>(null);
+  const [dokuExternalId, setDokuExternalId] = useState<string | null>(null);
+  const [dokuLoading, setDokuLoading] = useState(false);
+  const [dokuError, setDokuError] = useState<string | null>(null);
+  const [dokuExpiresAt, setDokuExpiresAt] = useState<string | null>(null);
+  const [dokuCountdown, setDokuCountdown] = useState<number>(0);
+  const [dokuPaid, setDokuPaid] = useState(false);
+  const [dokuAvailable, setDokuAvailable] = useState(false);
+  const [dokuInvoiceId, setDokuInvoiceId] = useState<string | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const countdownRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // ── Check if DOKU is available (one-time on mount) ──
+  useEffect(() => {
+    // We check by attempting a simple call; the API will return 503 if not configured
+    // But to be efficient, we just check a config endpoint
+    // For simplicity, we set this based on the create-qris response
+    setDokuAvailable(false);
+  }, []);
+
+  // ── Load static QRIS fallback ──
   useEffect(() => {
     if (!isOpen) {
       setStep("detail"); setPaid(false); setZoomed(false);
       setPaymentProof(null); setProofPreview(null);
+      setDokuQrUrl(null); setDokuExternalId(null); setDokuError(null);
+      setDokuExpiresAt(null); setDokuPaid(false); setDokuInvoiceId(null);
+      // Clean up polling & countdown
+      if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+      if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
       return;
     }
     setQrisLoading(true);
@@ -203,6 +229,98 @@ export default function ConfirmModal({
       .catch(() => setQris(null))
       .finally(() => setQrisLoading(false));
   }, [isOpen]);
+
+  // ── Generate DOKU QRIS when entering QRIS step ──
+  const generateDokuQris = useCallback(async () => {
+    if (!product) return;
+    setDokuLoading(true);
+    setDokuError(null);
+    setDokuQrUrl(null);
+    setDokuPaid(false);
+
+    // Generate invoice ID
+    const invoiceId = `INV-${Date.now()}-${Math.random().toString(36).slice(2, 6).toUpperCase()}`;
+    setDokuInvoiceId(invoiceId);
+
+    try {
+      const res = await fetch("/api/doku/create-qris", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          invoice_id: invoiceId,
+          amount: product.price,
+          game_id: gameId,
+          game_name: gameName,
+          username,
+          whatsapp,
+          product_id: product.id,
+          product_name: product.name,
+          expiry_minutes: 30,
+        }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        // DOKU not configured (503) → fallback to static
+        if (res.status === 503) {
+          setDokuAvailable(false);
+          setDokuLoading(false);
+          return;
+        }
+        throw new Error(data.error || "Gagal membuat QRIS");
+      }
+
+      setDokuAvailable(true);
+      setDokuQrUrl(data.qr_url);
+      setDokuExternalId(data.external_id);
+      setDokuExpiresAt(data.expires_at);
+
+      // Start countdown timer
+      const expiresMs = new Date(data.expires_at).getTime();
+      const updateCountdown = () => {
+        const remaining = Math.max(0, Math.floor((expiresMs - Date.now()) / 1000));
+        setDokuCountdown(remaining);
+        if (remaining <= 0) {
+          if (countdownRef.current) clearInterval(countdownRef.current);
+        }
+      };
+      updateCountdown();
+      countdownRef.current = setInterval(updateCountdown, 1000);
+
+      // Start polling for payment status
+      pollingRef.current = setInterval(async () => {
+        try {
+          const statusRes = await fetch(`/api/doku/check-status?invoice_id=${encodeURIComponent(invoiceId)}`, { cache: "no-store" });
+          const statusData = await statusRes.json();
+          if (statusData.paid) {
+            setDokuPaid(true);
+            if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+            if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+            // Auto-confirm the payment
+            onConfirm(true, null);
+          }
+        } catch {
+          // Silent fail — will retry on next interval
+        }
+      }, 3000);
+
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Gagal membuat QRIS";
+      setDokuError(message);
+      setDokuAvailable(false);
+    } finally {
+      setDokuLoading(false);
+    }
+  }, [product, gameId, gameName, username, whatsapp, onConfirm]);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+      if (countdownRef.current) clearInterval(countdownRef.current);
+    };
+  }, []);
 
   const handleProofChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0] ?? null;
@@ -222,6 +340,8 @@ export default function ConfirmModal({
 
   const handleNextFromDetail = () => {
     setStep("qris");
+    // Try to generate DOKU QRIS
+    generateDokuQris();
   };
 
   const copyPrice = () => {
@@ -421,12 +541,165 @@ export default function ConfirmModal({
         )}
 
         {/* ══════════════════════════════════════════
-            STEP 2 — QRIS Payment (atau langsung confirm jika tidak ada QRIS)
+            STEP 2 — QRIS Payment (DOKU Dynamic atau Static fallback)
             ══════════════════════════════════════════ */}
         {step === "qris" && !successInvoiceId && (
           <>
-            {/* QRIS Barcode card — hanya tampil jika ada QRIS aktif */}
-            {qris && (
+            {/* ── Loading DOKU QRIS ── */}
+            {dokuLoading && (
+              <div
+                className="rounded-2xl mb-4 flex flex-col items-center justify-center py-12"
+                style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
+              >
+                <Loader2 size={40} className="animate-spin mb-3" style={{ color: "#fbbf24" }} />
+                <p className="text-sm font-semibold" style={{ color: "var(--text-primary)" }}>Membuat QRIS...</p>
+                <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Menghubungi payment gateway</p>
+              </div>
+            )}
+
+            {/* ── DOKU Dynamic QRIS (jika berhasil) ── */}
+            {!dokuLoading && dokuAvailable && dokuQrUrl && (
+              <>
+                <div
+                  className="rounded-2xl mb-4 flex flex-col items-center overflow-hidden"
+                  style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)" }}
+                >
+                  {/* Label bar + countdown */}
+                  <div className="w-full flex items-center justify-between px-4 pt-3 pb-2"
+                    style={{ borderBottom: "1px solid var(--border)" }}>
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 rounded-full animate-pulse" style={{ background: dokuPaid ? "#10b981" : "#fbbf24" }} />
+                      <p className="text-xs font-bold" style={{ color: "var(--text-primary)" }}>
+                        {dokuPaid ? "✅ Pembayaran Diterima" : "QRIS Dinamis — DOKU"}
+                      </p>
+                    </div>
+                    {!dokuPaid && dokuCountdown > 0 && (
+                      <div className="flex items-center gap-1 px-2 py-1 rounded-lg text-xs font-bold"
+                        style={{
+                          background: dokuCountdown < 120 ? "rgba(239,68,68,0.12)" : "rgba(251,191,36,0.12)",
+                          color: dokuCountdown < 120 ? "#ef4444" : "#f59e0b",
+                          border: `1px solid ${dokuCountdown < 120 ? "rgba(239,68,68,0.2)" : "rgba(251,191,36,0.2)"}`,
+                        }}
+                      >
+                        <Timer size={12} />
+                        {Math.floor(dokuCountdown / 60)}:{(dokuCountdown % 60).toString().padStart(2, "0")}
+                      </div>
+                    )}
+                    {!dokuPaid && dokuCountdown <= 0 && dokuExpiresAt && (
+                      <span className="text-xs font-bold" style={{ color: "#ef4444" }}>⏰ QRIS Expired</span>
+                    )}
+                  </div>
+
+                  {/* QR Image from DOKU */}
+                  {!dokuPaid ? (
+                    <div className="p-3 flex items-center justify-center w-full transition-all duration-300">
+                      <div
+                        className="rounded-2xl overflow-hidden transition-all duration-300"
+                        style={{
+                          border: "3px solid #fbbf24",
+                          padding: "8px",
+                          background: "#fff",
+                          width: zoomed ? "100%" : 240,
+                          maxWidth: "100%",
+                          opacity: dokuCountdown <= 0 && dokuExpiresAt ? 0.3 : 1,
+                        }}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={dokuQrUrl}
+                          alt="QRIS Dinamis"
+                          style={{
+                            width: "100%",
+                            height: zoomed ? "auto" : 240,
+                            objectFit: "contain",
+                            display: "block",
+                            minHeight: zoomed ? 200 : undefined,
+                          }}
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="py-8 flex flex-col items-center">
+                      <div style={{
+                        width: "64px", height: "64px", borderRadius: "50%",
+                        background: "rgba(16,185,129,0.15)", border: "2px solid rgba(16,185,129,0.4)",
+                        display: "flex", alignItems: "center", justifyContent: "center",
+                        boxShadow: "0 0 30px rgba(16,185,129,0.3)",
+                        animation: "pulse 2s ease-in-out infinite",
+                      }}>
+                        <CheckCircle2 size={32} style={{ color: "#10b981" }} />
+                      </div>
+                      <p className="text-sm font-bold mt-3" style={{ color: "#10b981" }}>Pembayaran Berhasil!</p>
+                      <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>Transaksi sedang diproses...</p>
+                    </div>
+                  )}
+
+                  {/* Total amount + zoom/download */}
+                  <div
+                    className="w-full flex items-center justify-between px-4 py-3"
+                    style={{ borderTop: "1px solid var(--border)" }}
+                  >
+                    <span className="text-sm" style={{ color: "var(--text-muted)" }}>Total Pembayaran:</span>
+                    <div className="flex items-center gap-2">
+                      <span className="font-black text-lg gradient-text-gold">{formatCurrency(product.price)}</span>
+                      <button
+                        onClick={copyPrice}
+                        title="Salin nominal"
+                        className="w-7 h-7 rounded-lg flex items-center justify-center transition-all hover:opacity-80"
+                        style={{ background: "rgba(251,191,36,0.2)", color: "#fbbf24" }}
+                      >
+                        {copied ? <Check size={13} /> : <Copy size={13} />}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Info — DOKU */}
+                {!dokuPaid && (
+                  <>
+                    <div
+                      className="rounded-xl p-3 mb-4 text-xs leading-relaxed"
+                      style={{ background: "rgba(16,185,129,0.07)", border: "1px solid rgba(16,185,129,0.2)", color: "#10b981" }}
+                    >
+                      📲 Scan QR di atas menggunakan GoPay, OVO, Dana, ShopeePay, M-Banking, atau aplikasi QRIS lainnya.
+                      <strong> Nominal sudah tertanam di QR — tinggal scan &amp; bayar!</strong>
+                    </div>
+
+                    <div
+                      className="rounded-xl p-3 mb-4 text-xs leading-relaxed flex items-center gap-2"
+                      style={{ background: "rgba(124,58,237,0.07)", border: "1px solid rgba(124,58,237,0.2)", color: "#a78bfa" }}
+                    >
+                      <Loader2 size={14} className="animate-spin flex-shrink-0" />
+                      Menunggu pembayaran... Status akan otomatis ter-update.
+                    </div>
+                  </>
+                )}
+
+                {/* Expired → Regenerate button */}
+                {dokuCountdown <= 0 && dokuExpiresAt && !dokuPaid && (
+                  <button
+                    onClick={generateDokuQris}
+                    className="w-full btn-gold flex items-center justify-center gap-2 mb-4"
+                    style={{ padding: "12px" }}
+                  >
+                    <QrCode size={16} /> Generate QRIS Baru
+                  </button>
+                )}
+              </>
+            )}
+
+            {/* ── DOKU Error message ── */}
+            {!dokuLoading && dokuError && (
+              <div
+                className="rounded-xl p-3 mb-4 text-xs leading-relaxed"
+                style={{ background: "rgba(239,68,68,0.07)", border: "1px solid rgba(239,68,68,0.2)", color: "#ef4444" }}
+              >
+                ⚠️ Gagal membuat QRIS dinamis: {dokuError}. Silakan gunakan QRIS statis di bawah.
+              </div>
+            )}
+
+            {/* ── Static QRIS Fallback (hanya jika DOKU tidak tersedia) ── */}
+            {!dokuLoading && !dokuAvailable && qris && (
               <>
                 <div
                   className="rounded-2xl mb-4 flex flex-col items-center overflow-hidden"
@@ -439,7 +712,6 @@ export default function ConfirmModal({
                       {qris.label || "Scan QR Code untuk membayar"}
                     </p>
                     <div className="flex items-center gap-1.5">
-                      {/* Zoom toggle */}
                       <button
                         onClick={() => setZoomed((z) => !z)}
                         title={zoomed ? "Perkecil" : "Perbesar"}
@@ -449,7 +721,6 @@ export default function ConfirmModal({
                         {zoomed ? <ZoomOut size={12} /> : <ZoomIn size={12} />}
                         {zoomed ? "Kecil" : "Zoom"}
                       </button>
-                      {/* Download button */}
                       <button
                         id="qris-download-btn"
                         onClick={downloadQris}
@@ -524,77 +795,82 @@ export default function ConfirmModal({
               </>
             )}
 
-            {/* Confirm payment checkbox */}
-            <label
-              htmlFor="qris-paid-check"
-              className="flex items-center gap-3 cursor-pointer p-3 rounded-xl transition-all mb-4"
-              style={{
-                background: paid ? "rgba(16,185,129,0.08)" : "var(--bg-secondary)",
-                border: paid ? "1.5px solid rgba(16,185,129,0.35)" : "1.5px solid var(--border)",
-              }}
-            >
-              <input
-                type="checkbox"
-                id="qris-paid-check"
-                checked={paid}
-                onChange={(e) => setPaid(e.target.checked)}
-                className="sr-only"
-              />
-              <div
-                className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 transition-all"
-                style={
-                  paid
-                    ? { background: "#10b981", border: "2px solid #10b981" }
-                    : { background: "transparent", border: "2px solid var(--border)" }
-                }
-              >
-                {paid && <Check size={12} className="text-white" />}
-              </div>
-              <span className="text-sm font-semibold" style={{ color: paid ? "#10b981" : "var(--text-secondary)" }}>
-                Saya sudah melakukan pembayaran
-              </span>
-            </label>
-
-            {/* Upload bukti transfer (opsional) */}
-            <div className="mb-5">
-              <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-secondary)" }}>
-                📸 Bukti Transfer <span style={{ color: "#ef4444", fontWeight: 700 }}>*</span>
-              </p>
-              <input
-                ref={proofInputRef}
-                type="file"
-                accept="image/*"
-                id="payment-proof-input"
-                className="sr-only"
-                onChange={handleProofChange}
-              />
-              {proofPreview ? (
-                <div className="relative rounded-xl overflow-hidden" style={{ border: "1.5px solid rgba(16,185,129,0.4)" }}>
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src={proofPreview} alt="Bukti Transfer" style={{ width: "100%", maxHeight: 180, objectFit: "cover", display: "block" }} />
-                  <button
-                    onClick={() => { setPaymentProof(null); setProofPreview(null); if (proofInputRef.current) proofInputRef.current.value = ""; }}
-                    className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center"
-                    style={{ background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", cursor: "pointer" }}
-                  >
-                    <X size={14} />
-                  </button>
-                  <div className="px-3 py-1.5 text-xs" style={{ background: "rgba(16,185,129,0.1)", color: "#10b981" }}>
-                    ✅ {paymentProof?.name}
-                  </div>
-                </div>
-              ) : (
-                <button
-                  id="upload-proof-btn"
-                  onClick={() => proofInputRef.current?.click()}
-                  className="w-full flex flex-col items-center justify-center gap-2 py-4 rounded-xl transition-all hover:opacity-80"
-                  style={{ border: "1.5px dashed var(--border)", background: "var(--bg-secondary)", cursor: "pointer", color: "var(--text-muted)" }}
+            {/* ── Manual confirmation (hanya untuk QRIS statis) ── */}
+            {!dokuAvailable && !dokuLoading && (
+              <>
+                {/* Confirm payment checkbox */}
+                <label
+                  htmlFor="qris-paid-check"
+                  className="flex items-center gap-3 cursor-pointer p-3 rounded-xl transition-all mb-4"
+                  style={{
+                    background: paid ? "rgba(16,185,129,0.08)" : "var(--bg-secondary)",
+                    border: paid ? "1.5px solid rgba(16,185,129,0.35)" : "1.5px solid var(--border)",
+                  }}
                 >
-                  <Download size={20} style={{ opacity: 0.5 }} />
-                  <span className="text-xs">Klik untuk upload foto bukti transfer</span>
-                </button>
-              )}
-            </div>
+                  <input
+                    type="checkbox"
+                    id="qris-paid-check"
+                    checked={paid}
+                    onChange={(e) => setPaid(e.target.checked)}
+                    className="sr-only"
+                  />
+                  <div
+                    className="w-5 h-5 rounded-md flex items-center justify-center flex-shrink-0 transition-all"
+                    style={
+                      paid
+                        ? { background: "#10b981", border: "2px solid #10b981" }
+                        : { background: "transparent", border: "2px solid var(--border)" }
+                    }
+                  >
+                    {paid && <Check size={12} className="text-white" />}
+                  </div>
+                  <span className="text-sm font-semibold" style={{ color: paid ? "#10b981" : "var(--text-secondary)" }}>
+                    Saya sudah melakukan pembayaran
+                  </span>
+                </label>
+
+                {/* Upload bukti transfer */}
+                <div className="mb-5">
+                  <p className="text-xs font-semibold mb-2" style={{ color: "var(--text-secondary)" }}>
+                    📸 Bukti Transfer <span style={{ color: "#ef4444", fontWeight: 700 }}>*</span>
+                  </p>
+                  <input
+                    ref={proofInputRef}
+                    type="file"
+                    accept="image/*"
+                    id="payment-proof-input"
+                    className="sr-only"
+                    onChange={handleProofChange}
+                  />
+                  {proofPreview ? (
+                    <div className="relative rounded-xl overflow-hidden" style={{ border: "1.5px solid rgba(16,185,129,0.4)" }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={proofPreview} alt="Bukti Transfer" style={{ width: "100%", maxHeight: 180, objectFit: "cover", display: "block" }} />
+                      <button
+                        onClick={() => { setPaymentProof(null); setProofPreview(null); if (proofInputRef.current) proofInputRef.current.value = ""; }}
+                        className="absolute top-2 right-2 w-7 h-7 rounded-full flex items-center justify-center"
+                        style={{ background: "rgba(0,0,0,0.6)", color: "#fff", border: "none", cursor: "pointer" }}
+                      >
+                        <X size={14} />
+                      </button>
+                      <div className="px-3 py-1.5 text-xs" style={{ background: "rgba(16,185,129,0.1)", color: "#10b981" }}>
+                        ✅ {paymentProof?.name}
+                      </div>
+                    </div>
+                  ) : (
+                    <button
+                      id="upload-proof-btn"
+                      onClick={() => proofInputRef.current?.click()}
+                      className="w-full flex flex-col items-center justify-center gap-2 py-4 rounded-xl transition-all hover:opacity-80"
+                      style={{ border: "1.5px dashed var(--border)", background: "var(--bg-secondary)", cursor: "pointer", color: "var(--text-muted)" }}
+                    >
+                      <Download size={20} style={{ opacity: 0.5 }} />
+                      <span className="text-xs">Klik untuk upload foto bukti transfer</span>
+                    </button>
+                  )}
+                </div>
+              </>
+            )}
 
             <div className="disclaimer-box mb-5">
               <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" style={{ color: "#ef4444" }} />
@@ -606,26 +882,50 @@ export default function ConfirmModal({
 
             <div className="flex gap-3">
               <button
-                onClick={() => setStep("detail")}
+                onClick={() => {
+                  setStep("detail");
+                  // Stop polling & countdown when going back
+                  if (pollingRef.current) { clearInterval(pollingRef.current); pollingRef.current = null; }
+                  if (countdownRef.current) { clearInterval(countdownRef.current); countdownRef.current = null; }
+                }}
                 id="modal-back-btn"
                 className="flex-1 btn-outline"
                 style={{ padding: "12px" }}
               >
                 Kembali
               </button>
-              <button
-                onClick={() => { if (paid && paymentProof) onConfirm(hasQris && paid, paymentProof); }}
-                id="modal-confirm-btn"
-                disabled={!paid || !paymentProof || isLoading}
-                className="flex-1 btn-gold flex items-center justify-center gap-2"
-                style={{ padding: "12px", opacity: (paid && paymentProof && !isLoading) ? 1 : 0.45, cursor: (paid && paymentProof && !isLoading) ? "pointer" : "not-allowed" }}
-              >
-                {isLoading ? (
-                  <><Loader2 size={16} className="animate-spin" /> Memproses...</>
-                ) : (
-                  <><Zap size={16} /> Beli Sekarang</>
-                )}
-              </button>
+              {/* Tombol konfirmasi: DOKU → otomatis, Statis → manual */}
+              {dokuAvailable && dokuQrUrl ? (
+                <button
+                  onClick={() => { if (dokuPaid) onConfirm(true, null); }}
+                  id="modal-confirm-btn"
+                  disabled={!dokuPaid || isLoading}
+                  className="flex-1 btn-gold flex items-center justify-center gap-2"
+                  style={{ padding: "12px", opacity: (dokuPaid && !isLoading) ? 1 : 0.45, cursor: (dokuPaid && !isLoading) ? "pointer" : "not-allowed" }}
+                >
+                  {isLoading ? (
+                    <><Loader2 size={16} className="animate-spin" /> Memproses...</>
+                  ) : dokuPaid ? (
+                    <><CheckCircle2 size={16} /> Selesai</>
+                  ) : (
+                    <><Clock size={16} /> Menunggu Bayar...</>
+                  )}
+                </button>
+              ) : (
+                <button
+                  onClick={() => { if (paid && paymentProof) onConfirm(hasQris && paid, paymentProof); }}
+                  id="modal-confirm-btn"
+                  disabled={!paid || !paymentProof || isLoading}
+                  className="flex-1 btn-gold flex items-center justify-center gap-2"
+                  style={{ padding: "12px", opacity: (paid && paymentProof && !isLoading) ? 1 : 0.45, cursor: (paid && paymentProof && !isLoading) ? "pointer" : "not-allowed" }}
+                >
+                  {isLoading ? (
+                    <><Loader2 size={16} className="animate-spin" /> Memproses...</>
+                  ) : (
+                    <><Zap size={16} /> Beli Sekarang</>
+                  )}
+                </button>
+              )}
             </div>
           </>
         )}

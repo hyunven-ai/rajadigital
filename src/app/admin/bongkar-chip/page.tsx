@@ -248,8 +248,13 @@ export default function AdminBongkarChipPage() {
     const nominalNum = payModal.nominal ? parseInt(payModal.nominal) : undefined;
     setRows(prev => prev.filter(r => r.id !== payModal.id));
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") ?? "" : "";
       await fetch(`/api/bongkar-chip/${payModal.id}`, {
-        method: "PATCH", headers: { "Content-Type": "application/json" },
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ status: "selesai", nominal_pembayaran: nominalNum ?? null }),
       });
       setPayModal(null);
@@ -263,9 +268,14 @@ export default function AdminBongkarChipPage() {
     setBulkUpdating(true);
     const ids = Array.from(selected);
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") ?? "" : "";
       await Promise.all(ids.map(id =>
         fetch(`/api/bongkar-chip/${id}`, {
-          method: "PATCH", headers: { "Content-Type": "application/json" },
+          method: "PATCH",
+          headers: {
+            "Content-Type": "application/json",
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          },
           body: JSON.stringify({ status: bulkStatus }),
         })
       ));
@@ -284,7 +294,13 @@ export default function AdminBongkarChipPage() {
     setBulkDeleting(true);
     const ids = Array.from(selected);
     try {
-      await Promise.all(ids.map(id => fetch(`/api/bongkar-chip/${id}`, { method: "DELETE" })));
+      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") ?? "" : "";
+      await Promise.all(ids.map(id =>
+        fetch(`/api/bongkar-chip/${id}`, {
+          method: "DELETE",
+          headers: token ? { Authorization: `Bearer ${token}` } : {},
+        })
+      ));
       setRows(prev => prev.filter(r => !ids.includes(r.id)));
       setSelected(new Set());
       setShowBulkDelConfirm(false);
@@ -298,7 +314,11 @@ export default function AdminBongkarChipPage() {
     if (!deleteTarget) return;
     setDeleting(true);
     try {
-      const res = await fetch(`/api/bongkar-chip/${deleteTarget.id}`, { method: "DELETE" });
+      const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") ?? "" : "";
+      const res = await fetch(`/api/bongkar-chip/${deleteTarget.id}`, {
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
       if (!res.ok) throw new Error("Gagal menghapus");
       setRows(prev => prev.filter(r => r.id !== deleteTarget.id));
       setDeleteTarget(null);

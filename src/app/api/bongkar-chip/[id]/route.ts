@@ -84,10 +84,12 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     const { error: delErr } = await db.from("bongkar_chip_requests").delete().eq("id", id);
     if (delErr) throw delErr;
 
+    const admin = await getAdminFromRequest(req);
+
     // Log activity (non-blocking)
     db.from("activity_logs").insert({
       admin_id:       null,
-      admin_username: "admin",
+      admin_username: admin.username,
       action:         "DELETE_BONGKAR_CHIP",
       details: JSON.stringify({
         request_id:     id,

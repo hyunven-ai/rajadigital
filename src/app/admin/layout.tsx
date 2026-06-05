@@ -41,12 +41,54 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [adminName, setAdminName] = useState("Admin");
 
+  useEffect(() => {
+    if (pathname === "/admin" || pathname === "/admin/login") return;
+
+    const token = localStorage.getItem("admin_token");
+    if (!token) {
+      router.push("/admin/login");
+      return;
+    }
+
+    const storedUsername = localStorage.getItem("admin_username");
+    if (storedUsername) {
+      setAdminName(storedUsername);
+      return;
+    }
+
+    if (token === "dev-token") {
+      setAdminName("admin");
+      return;
+    }
+
+    try {
+      const payloadBase64 = token.split(".")[1];
+      if (payloadBase64) {
+        const base64 = payloadBase64.replace(/-/g, "+").replace(/_/g, "/");
+        const jsonPayload = decodeURIComponent(
+          window.atob(base64)
+            .split("")
+            .map((c) => "%" + ("00" + c.charCodeAt(0).toString(16)).slice(-2))
+            .join("")
+        );
+        const decoded = JSON.parse(jsonPayload);
+        if (decoded && decoded.username) {
+          setAdminName(decoded.username);
+          localStorage.setItem("admin_username", decoded.username);
+        }
+      }
+    } catch (e) {
+      console.error("Failed to decode admin token:", e);
+    }
+  }, [pathname, router]);
+
   if (pathname === "/admin" || pathname === "/admin/login") {
     return <>{children}</>;
   }
 
   const handleLogout = () => {
     localStorage.removeItem("admin_token");
+    localStorage.removeItem("admin_username");
     router.push("/admin/login");
   };
 

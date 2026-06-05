@@ -32,6 +32,16 @@ export interface Transaction {
   notes?: string;
   created_at: string;
   updated_at?: string;
+  // DOKU Dynamic QRIS fields
+  doku_invoice_id?: string;
+  doku_qr_url?: string;
+  doku_qr_content?: string;
+  doku_external_id?: string;
+  doku_reference_no?: string;
+  doku_paid_at?: string;
+  payment_method?: "qris_static" | "qris_doku";
+  processed_by?: string;
+  processed_at?: string;
 }
 
 export interface WaNumber {

@@ -27,7 +27,7 @@ export async function PATCH(
       .from("admins")
       .update(body)
       .eq("id", id)
-      .select("id, username, email, role, is_active, created_at")
+      .select("id, username, display_name, email, role, is_active, created_at, permissions")
       .single();
 
     if (error) throw error;

@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { getAdminByUsername, updateAdminLastLogin } from "@/lib/supabase";
+import { createServerSupabase } from "@/lib/supabase";
 import { SignJWT } from "jose";
 import bcrypt from "bcryptjs";
 
@@ -50,11 +51,23 @@ export async function POST(req: Request) {
     // Update last login
     await updateAdminLastLogin(admin.id);
 
+    // Ambil display_name dari DB (getAdminByUsername mungkin belum include field ini)
+    const db = createServerSupabase();
+    const { data: adminFull } = await db
+      .from("admins")
+      .select("display_name, permissions")
+      .eq("id", admin.id)
+      .maybeSingle();
+    const displayName = adminFull?.display_name || admin.username;
+    const permissions: string[] | null = adminFull?.permissions ?? null;
+
     // Buat JWT token
     const token = await new SignJWT({
       id: admin.id,
       username: admin.username,
+      display_name: displayName,
       role: admin.role,
+      permissions,
     })
       .setProtectedHeader({ alg: "HS256" })
       .setIssuedAt()
@@ -64,7 +77,9 @@ export async function POST(req: Request) {
     return NextResponse.json({
       token,
       username: admin.username,
+      display_name: displayName,
       role: admin.role,
+      permissions,
     });
   } catch (err) {
     console.error("Admin login error:", err);

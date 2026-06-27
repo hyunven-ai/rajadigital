@@ -279,6 +279,19 @@ body {
   }
 }
 
+@keyframes fadeIn {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes popIn {
+  0%   { opacity: 0; transform: scale(0.85) translateY(12px); }
+  70%  { opacity: 1; transform: scale(1.04) translateY(-2px); }
+  100% { transform: scale(1) translateY(0); }
+}
+
+
+
 .animate-shimmer {
   animation: shimmer 2s infinite linear;
   background: linear-gradient(to right, var(--bg-secondary) 4%, var(--border) 25%, var(--bg-secondary) 36%);

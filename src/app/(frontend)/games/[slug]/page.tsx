@@ -42,6 +42,28 @@ export default function GamePage() {
   const [showOrder,       setShowOrder]       = useState(false);
   const [successInvoiceId, setSuccessInvoiceId] = useState<string | null>(null);
   const [viewMode,         setViewMode]         = useState<"grid" | "list">("grid");
+  const [incompletePopup,  setIncompletePopup]  = useState(false); // popup "Data Tidak Lengkap"
+
+  // Load cached form data on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cachedGameId = localStorage.getItem("rajadigital_topup_game_id");
+      const cachedUsername = localStorage.getItem("rajadigital_topup_username");
+      const cachedWhatsapp = localStorage.getItem("rajadigital_topup_whatsapp");
+      if (cachedGameId) setGameId(cachedGameId);
+      if (cachedUsername) setUsername(cachedUsername);
+      if (cachedWhatsapp) setWhatsapp(cachedWhatsapp);
+    }
+  }, []);
+
+  // Save to localStorage when values change
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      if (gameId) localStorage.setItem("rajadigital_topup_game_id", gameId);
+      if (username) localStorage.setItem("rajadigital_topup_username", username);
+      if (whatsapp) localStorage.setItem("rajadigital_topup_whatsapp", whatsapp);
+    }
+  }, [gameId, username, whatsapp]);
   // pageStep: 2 = Pilih Paket, 3 = Isi Formulir
 
 
@@ -174,6 +196,20 @@ export default function GamePage() {
     return <span style={{ fontSize: size, lineHeight: 1 }}>{getProductIconEmoji(product)}</span>;
   };
 
+
+  /* ── Guard: cek apakah formulir sudah diisi sebelum pilih paket ── */
+  const handleSelectProduct = (product: Product) => {
+    if (!gameId.trim() || !whatsapp.trim()) {
+      setIncompletePopup(true);
+      // Scroll ke form supaya user tau apa yang harus diisi
+      setTimeout(() => {
+        document.getElementById("input-game-id")?.focus();
+        document.getElementById("order-section")?.scrollIntoView({ behavior: "smooth" });
+      }, 100);
+      return;
+    }
+    setSelectedProduct(product);
+  };
 
   /* ── Order handlers ── */
   const handleOrder = () => {
@@ -385,10 +421,11 @@ export default function GamePage() {
                 className="input-styled"
                 placeholder="Contoh: 123456789"
                 value={gameId}
-                onChange={(e) => setGameId(e.target.value.replace(/\D/g, ""))}
+                maxLength={10}
+                onChange={(e) => setGameId(e.target.value.replace(/\D/g, "").slice(0, 10))}
               />
               <p className="text-xs mt-1.5" style={{ color: "var(--text-muted)" }}>
-                Temukan Game ID di dalam game → Profil → ID Pengguna
+                Temukan Game ID di dalam game → Profil → ID Pengguna (maks. 10 digit)
               </p>
             </div>
 
@@ -414,8 +451,9 @@ export default function GamePage() {
                 className="input-styled"
                 placeholder="Contoh: 08123456789"
                 value={whatsapp}
+                maxLength={15}
                 onChange={(e) => {
-                  let val = e.target.value.replace(/\D/g, "");
+                  let val = e.target.value.replace(/\D/g, "").slice(0, 15);
                   if (val.length > 0 && val[0] !== '0' && val[0] !== '6') val = "";
                   else if (val.length >= 2 && val.startsWith('6') && val[1] !== '2') val = "6";
                   setWhatsapp(val);
@@ -594,6 +632,13 @@ export default function GamePage() {
                     const isSelected = selectedProduct?.id === product.id || selectedProduct?.id === `${product.id}-dynamic`;
 
                     const handleSliderChange = (val: number) => {
+                      if (!gameId.trim() || !whatsapp.trim()) {
+                        setIncompletePopup(true);
+                        setTimeout(() => {
+                          document.getElementById("input-game-id")?.focus();
+                        }, 100);
+                        return;
+                      }
                       setSpecialValues(prev => ({ ...prev, [product.id]: val }));
                       setSelectedProduct({
                         ...product,
@@ -673,7 +718,7 @@ export default function GamePage() {
                       <button
                         key={product.id}
                         id={`product-${product.id}`}
-                        onClick={() => setSelectedProduct(product)}
+                        onClick={() => handleSelectProduct(product)}
                         style={{
                           display: "flex",
                           flexDirection: "column",
@@ -825,7 +870,7 @@ export default function GamePage() {
                     <button
                       key={product.id}
                       id={`product-list-${product.id}`}
-                      onClick={() => setSelectedProduct(product)}
+                      onClick={() => handleSelectProduct(product)}
                       style={{
                         display: "flex",
                         alignItems: "center",
@@ -970,6 +1015,144 @@ export default function GamePage() {
           </Link>
         </div>
       </div>
+
+      {/* ── Popup Data Tidak Lengkap ── */}
+      {incompletePopup && (
+        <div
+          onClick={() => setIncompletePopup(false)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(0,0,0,0.65)",
+            backdropFilter: "blur(4px)",
+            display: "flex",
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 9999,
+            padding: "16px",
+            animation: "fadeIn 0.15s ease",
+          }}
+        >
+          <div
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              background: "var(--bg-card, #1e1b4b)",
+              border: "1.5px solid rgba(239,68,68,0.4)",
+              borderRadius: "24px",
+              padding: "32px 28px",
+              maxWidth: "360px",
+              width: "100%",
+              textAlign: "center",
+              boxShadow: "0 20px 60px rgba(0,0,0,0.5), 0 0 0 1px rgba(239,68,68,0.2)",
+              animation: "popIn 0.2s cubic-bezier(0.34,1.56,0.64,1)",
+            }}
+          >
+            {/* Icon */}
+            <div style={{
+              width: "64px", height: "64px", borderRadius: "50%",
+              background: "rgba(239,68,68,0.12)",
+              border: "2px solid rgba(239,68,68,0.3)",
+              display: "flex", alignItems: "center", justifyContent: "center",
+              margin: "0 auto 16px",
+              fontSize: "28px",
+            }}>
+              ⚠️
+            </div>
+
+            {/* Title */}
+            <h3 style={{
+              fontSize: "18px",
+              fontWeight: 800,
+              color: "#ef4444",
+              marginBottom: "8px",
+              fontFamily: "var(--font-outfit, sans-serif)",
+              letterSpacing: "-0.02em",
+            }}>
+              Data Tidak Lengkap!
+            </h3>
+
+            {/* Body */}
+            <p style={{
+              fontSize: "14px",
+              color: "var(--text-secondary, #94a3b8)",
+              lineHeight: 1.6,
+              marginBottom: "24px",
+            }}>
+              Isi <strong style={{ color: "var(--text-primary, #fff)" }}>Royal ID</strong> dan{" "}
+              <strong style={{ color: "var(--text-primary, #fff)" }}>Nomor WhatsApp</strong>{" "}
+              terlebih dahulu sebelum memilih paket!
+            </p>
+
+            {/* Checklist */}
+            <div style={{
+              background: "rgba(239,68,68,0.06)",
+              border: "1px solid rgba(239,68,68,0.15)",
+              borderRadius: "12px",
+              padding: "12px 16px",
+              marginBottom: "24px",
+              textAlign: "left",
+              display: "flex",
+              flexDirection: "column",
+              gap: "8px",
+            }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" }}>
+                <span style={{
+                  width: "18px", height: "18px", borderRadius: "50%",
+                  background: gameId.trim() ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
+                  border: `1.5px solid ${gameId.trim() ? "#10b981" : "#ef4444"}`,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  fontSize: "10px", flexShrink: 0,
+                }}>
+                  {gameId.trim() ? "✓" : "!"}
+                </span>
+                <span style={{ color: gameId.trim() ? "#10b981" : "#ef4444", fontWeight: 600 }}>
+                  Royal ID / Game ID
+                </span>
+                {gameId.trim() && <span style={{ color: "var(--text-muted)", fontSize: "11px", marginLeft: "auto" }}>✅ Terisi</span>}
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "13px" }}>
+                <span style={{
+                  width: "18px", height: "18px", borderRadius: "50%",
+                  background: whatsapp.trim() ? "rgba(16,185,129,0.15)" : "rgba(239,68,68,0.15)",
+                  border: `1.5px solid ${whatsapp.trim() ? "#10b981" : "#ef4444"}`,
+                  display: "inline-flex", alignItems: "center", justifyContent: "center",
+                  fontSize: "10px", flexShrink: 0,
+                }}>
+                  {whatsapp.trim() ? "✓" : "!"}
+                </span>
+                <span style={{ color: whatsapp.trim() ? "#10b981" : "#ef4444", fontWeight: 600 }}>
+                  Nomor WhatsApp
+                </span>
+                {whatsapp.trim() && <span style={{ color: "var(--text-muted)", fontSize: "11px", marginLeft: "auto" }}>✅ Terisi</span>}
+              </div>
+            </div>
+
+            {/* OK Button */}
+            <button
+              id="incomplete-popup-ok"
+              onClick={() => setIncompletePopup(false)}
+              style={{
+                width: "100%",
+                padding: "14px",
+                borderRadius: "14px",
+                background: "linear-gradient(135deg, #ef4444, #dc2626)",
+                color: "#fff",
+                fontWeight: 800,
+                fontSize: "15px",
+                cursor: "pointer",
+                border: "none",
+                boxShadow: "0 4px 20px rgba(239,68,68,0.4)",
+                transition: "transform 0.1s ease, opacity 0.1s ease",
+                letterSpacing: "0.01em",
+              }}
+              onMouseDown={(e) => (e.currentTarget.style.transform = "scale(0.97)")}
+              onMouseUp={(e) => (e.currentTarget.style.transform = "scale(1)")}
+            >
+              OKE, Saya Mengerti!
+            </button>
+          </div>
+        </div>
+      )}
 
       <ConfirmModal
         isOpen={modalOpen} onClose={() => { setModalOpen(false); setSuccessInvoiceId(null); }}

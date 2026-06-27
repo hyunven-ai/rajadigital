@@ -78,6 +78,14 @@ export default function AdminBongkarChipPage() {
   const [loading, setLoading]   = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [copied, setCopied]     = useState<string | null>(null);
+
+  const [adminRole, setAdminRole] = useState("");
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setAdminRole(localStorage.getItem("admin_role") ?? "");
+    }
+  }, []);
+
   const [deleteTarget, setDeleteTarget] = useState<BongkarRequest | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -108,7 +116,8 @@ export default function AdminBongkarChipPage() {
   const [paySubmitting, setPaySubmitting] = useState(false);
 
   // Date
-  const todayStr = new Date().toISOString().slice(0, 10);
+  // Pakai tanggal lokal WIB — bukan UTC (toISOString bisa balik tanggal kemarin sebelum jam 07:00 WIB)
+  const todayStr = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jakarta" });
   const [showToday, setShowToday] = useState(false);
   const [dateFrom, setDateFrom]   = useState("");
   const [dateTo, setDateTo]       = useState("");
@@ -574,11 +583,13 @@ export default function AdminBongkarChipPage() {
               {bulkUpdating ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Terapkan
             </button>
           </div>
-          <button id="bulk-delete-btn" onClick={() => setShowBulkDelConfirm(true)}
-            className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl"
-            style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.35)" }}>
-            <Trash2 size={12} /> Hapus {selected.size}
-          </button>
+          {adminRole === "superadmin" && (
+            <button id="bulk-delete-btn" onClick={() => setShowBulkDelConfirm(true)}
+              className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl"
+              style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.35)" }}>
+              <Trash2 size={12} /> Hapus {selected.size}
+            </button>
+          )}
         </div>
       )}
 
@@ -798,12 +809,14 @@ export default function AdminBongkarChipPage() {
                           </div>
                         ) : <span className="text-xs" style={{ color: "var(--border)" }}>—</span>}
                       </td>
-                      <td className="text-right">
-                        <button id={`delete-bongkar-${r.id}`} onClick={() => setDeleteTarget(r)}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110 active:scale-95"
-                          style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
-                          <Trash2 size={13} />
-                        </button>
+                       <td className="text-right">
+                        {adminRole === "superadmin" && (
+                          <button id={`delete-bongkar-${r.id}`} onClick={() => setDeleteTarget(r)}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110 active:scale-95"
+                            style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

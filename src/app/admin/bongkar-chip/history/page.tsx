@@ -100,7 +100,8 @@ export default function AdminBongkarChipPage() {
   const [paySubmitting, setPaySubmitting] = useState(false);
 
   // Date
-  const todayStr = new Date().toISOString().slice(0, 10);
+  // Pakai tanggal lokal WIB — bukan UTC (toISOString bisa balik tanggal kemarin sebelum jam 07:00 WIB)
+  const todayStr = new Date().toLocaleDateString("sv-SE", { timeZone: "Asia/Jakarta" });
   const [showToday, setShowToday] = useState(false);
   const [dateFrom, setDateFrom]   = useState("");
   const [dateTo, setDateTo]       = useState("");

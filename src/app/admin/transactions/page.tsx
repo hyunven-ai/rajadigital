@@ -83,6 +83,13 @@ export default function AdminTransactionsPage() {
   const [loading,       setLoading]       = useState(true);
   const [updating,      setUpdating]       = useState<string|null>(null);
   const [copiedGameId,  setCopiedGameId]   = useState<string|null>(null);
+
+  const [adminRole, setAdminRole] = useState("");
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setAdminRole(localStorage.getItem("admin_role") ?? "");
+    }
+  }, []);
   const [deleteTarget,  setDeleteTarget]   = useState<Transaction|null>(null);
   const [deleting,      setDeleting]       = useState(false);
   const [showLogs,      setShowLogs]       = useState(false);
@@ -814,15 +821,17 @@ export default function AdminTransactionsPage() {
           </div>
 
           {/* Bulk delete */}
-          <button
-            id="bulk-delete-btn"
-            onClick={() => setShowBulkDeleteConfirm(true)}
-            className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl transition-all hover:opacity-90"
-            style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.35)" }}
-          >
-            <Trash2 size={12} />
-            Hapus {selectedIds.size} Transaksi
-          </button>
+          {adminRole === "superadmin" && (
+            <button
+              id="bulk-delete-btn"
+              onClick={() => setShowBulkDeleteConfirm(true)}
+              className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl transition-all hover:opacity-90"
+              style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.35)" }}
+            >
+              <Trash2 size={12} />
+              Hapus {selectedIds.size} Transaksi
+            </button>
+          )}
         </div>
       )}
 
@@ -1041,15 +1050,17 @@ export default function AdminTransactionsPage() {
                           </div>
                         ) : <span className="text-xs" style={{ color: "var(--border)" }}>—</span>}
                       </td>
-                      <td className="text-right">
-                        <button
-                          id={`del-tx-${t.id}`}
-                          title="Hapus transaksi"
-                          onClick={() => setDeleteTarget(t)}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110 active:scale-95"
-                          style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
-                          <Trash2 size={13} />
-                        </button>
+                       <td className="text-right">
+                        {adminRole === "superadmin" && (
+                          <button
+                            id={`del-tx-${t.id}`}
+                            title="Hapus transaksi"
+                            onClick={() => setDeleteTarget(t)}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110 active:scale-95"
+                            style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
+                            <Trash2 size={13} />
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );

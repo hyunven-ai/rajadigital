@@ -35,7 +35,6 @@ interface BongkarResult {
 export default function BongkarChipPage() {
   const [activeTab, setActiveTab] = useState<"form" | "cek">("form");
 
-  // Form state
   const [form, setForm] = useState({
     game_name: "",
     player_id: "",
@@ -49,6 +48,41 @@ export default function BongkarChipPage() {
   const [success, setSuccess] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copySuccess, setCopySuccess] = useState(false);
+
+  // Load cached form data on mount
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const cached = localStorage.getItem("rajadigital_bongkar_form");
+      if (cached) {
+        try {
+          const parsed = JSON.parse(cached);
+          setForm(prev => ({
+            ...prev,
+            player_id: parsed.player_id ?? "",
+            bank: parsed.bank ?? "",
+            nomor_rekening: parsed.nomor_rekening ?? "",
+            nama_rekening: parsed.nama_rekening ?? "",
+            whatsapp: parsed.whatsapp ?? "",
+          }));
+        } catch (e) {
+          console.error("Failed to parse cached bongkar form:", e);
+        }
+      }
+    }
+  }, []);
+
+  // Save to localStorage when form changes
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      localStorage.setItem("rajadigital_bongkar_form", JSON.stringify({
+        player_id: form.player_id,
+        bank: form.bank,
+        nomor_rekening: form.nomor_rekening,
+        nama_rekening: form.nama_rekening,
+        whatsapp: form.whatsapp,
+      }));
+    }
+  }, [form.player_id, form.bank, form.nomor_rekening, form.nama_rekening, form.whatsapp]);
 
   const handleCopyId = (tujuanId: string) => {
     navigator.clipboard.writeText(tujuanId);

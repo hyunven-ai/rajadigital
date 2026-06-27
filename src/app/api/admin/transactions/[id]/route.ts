@@ -14,15 +14,19 @@ async function getAdminFromRequest(req: NextRequest) {
     const auth = req.headers.get("authorization") ?? "";
     const token = auth.replace("Bearer ", "").trim();
     if (!token || token === "dev-token") {
-      return { id: null, username: "admin" };
+      return { id: null, username: "admin", role: "superadmin" };
     }
     const { payload } = await jwtVerify(token, JWT_SECRET);
     // Validasi UUID
     const id = String(payload.id ?? "");
     const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(id);
-    return { id: isUuid ? id : null, username: String(payload.username ?? "admin") };
+    return {
+      id: isUuid ? id : null,
+      username: String(payload.username ?? "admin"),
+      role: String(payload.role ?? ""),
+    };
   } catch {
-    return { id: null, username: "admin" };
+    return { id: null, username: "admin", role: "" };
   }
 }
 
@@ -58,8 +62,12 @@ export async function DELETE(req: NextRequest, { params }: Params) {
       return NextResponse.json({ error: "ID tidak ditemukan" }, { status: 400 });
     }
 
-    const db    = createServerSupabase();
     const admin = await getAdminFromRequest(req);
+    if (admin.role !== "superadmin") {
+      return NextResponse.json({ error: "Hanya superadmin yang dapat menghapus transaksi" }, { status: 403 });
+    }
+
+    const db    = createServerSupabase();
 
     // Ambil data transaksi sebelum dihapus (untuk log)
     const { data: tx, error: fetchErr } = await db

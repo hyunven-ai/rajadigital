@@ -27,6 +27,10 @@ export default function AdminLoginPage() {
       if (!res.ok) { setError(data.error || "Login gagal"); return; }
       localStorage.setItem("admin_token", data.token);
       localStorage.setItem("admin_username", data.username);
+      if (data.display_name) localStorage.setItem("admin_display_name", data.display_name);
+      if (data.role)         localStorage.setItem("admin_role", data.role);
+      if (data.permissions)  localStorage.setItem("admin_permissions", JSON.stringify(data.permissions));
+      else                   localStorage.removeItem("admin_permissions");
       router.push("/admin/dashboard");
     } catch {
       setError("Gagal terhubung ke server");

@@ -10,7 +10,7 @@ export async function GET() {
     const db = createServerSupabase();
     const { data, error } = await db
       .from("admins")
-      .select("id, username, email, role, is_active, last_login, created_at")
+      .select("id, username, display_name, email, role, is_active, last_login, created_at, permissions")
       .order("created_at", { ascending: true });
 
     if (error) throw error;
@@ -23,7 +23,7 @@ export async function GET() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { username, email, password, role } = await req.json();
+    const { username, email, password, role, display_name, permissions } = await req.json();
 
     if (!username || !email || !password) {
       return NextResponse.json({ error: "Username, email, dan password wajib diisi" }, { status: 400 });
@@ -60,8 +60,17 @@ export async function POST(req: NextRequest) {
 
     const { data, error } = await db
       .from("admins")
-      .insert({ username, email, password_hash, role: role ?? "admin", is_active: true })
-      .select("id, username, email, role, is_active, created_at")
+      .insert({
+        username,
+        email,
+        password_hash,
+        role: role ?? "admin",
+        display_name: display_name?.trim() || null,
+        // Default OP/CS preset jika permissions tidak diberikan
+        permissions: permissions ?? ["transactions", "transactions_history", "bongkar_chip", "bongkar_chip_history"],
+        is_active: true,
+      })
+      .select("id, username, display_name, email, role, is_active, created_at, permissions")
       .single();
 
     if (error) throw error;

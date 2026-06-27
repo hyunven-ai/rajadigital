@@ -13,11 +13,14 @@ async function getAdminFromRequest(req: NextRequest) {
   try {
     const auth = req.headers.get("authorization") ?? "";
     const token = auth.replace("Bearer ", "").trim();
-    if (!token || token === "dev-token") return { username: "admin" };
+    if (!token || token === "dev-token") return { username: "admin", role: "superadmin" };
     const { payload } = await jwtVerify(token, JWT_SECRET);
-    return { username: String(payload.username ?? "admin") };
+    return { 
+      username: String(payload.username ?? "admin"),
+      role: String(payload.role ?? ""),
+    };
   } catch {
-    return { username: "admin" };
+    return { username: "admin", role: "" };
   }
 }
 
@@ -67,6 +70,11 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     const { id } = await params;
     if (!id) return NextResponse.json({ error: "ID tidak ditemukan" }, { status: 400 });
 
+    const admin = await getAdminFromRequest(req);
+    if (admin.role !== "superadmin") {
+      return NextResponse.json({ error: "Hanya superadmin yang dapat menghapus request bongkar chip" }, { status: 403 });
+    }
+
     const db = createServerSupabase();
 
     // Ambil data sebelum hapus (untuk log)
@@ -83,8 +91,6 @@ export async function DELETE(req: NextRequest, { params }: Params) {
     // Hapus
     const { error: delErr } = await db.from("bongkar_chip_requests").delete().eq("id", id);
     if (delErr) throw delErr;
-
-    const admin = await getAdminFromRequest(req);
 
     // Log activity (non-blocking)
     db.from("activity_logs").insert({

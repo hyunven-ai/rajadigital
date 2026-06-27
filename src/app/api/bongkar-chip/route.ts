@@ -43,8 +43,10 @@ export async function GET(req: NextRequest) {
         q = q.eq("status", status);
       }
     }
-    if (date_from)        q = q.gte("created_at", `${date_from}T00:00:00.000Z`);
-    if (date_to)          q = q.lte("created_at", `${date_to}T23:59:59.999Z`);
+    // Gunakan offset WIB (+07:00) agar filter tanggal sesuai waktu lokal Indonesia
+    // Tanpa ini, 2026-06-16T00:00:00Z = 07:00 WIB → data jam 00-07 WIB ikut terlewat / tanggal berikutnya ikut masuk
+    if (date_from)        q = q.gte("created_at", `${date_from}T00:00:00.000+07:00`);
+    if (date_to)          q = q.lte("created_at", `${date_to}T23:59:59.999+07:00`);
     q = q.range(offset, offset + limit - 1);
 
     const { data, error } = await q;

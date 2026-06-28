@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
         username,
         email,
         password_hash,
-        role: role ?? "admin",
+        role: role ? String(role).toLowerCase() : "admin",
         display_name: display_name?.trim() || null,
         // Default OP/CS preset jika permissions tidak diberikan
         permissions: permissions ?? ["transactions", "transactions_history", "bongkar_chip", "bongkar_chip_history"],

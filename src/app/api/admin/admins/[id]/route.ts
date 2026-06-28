@@ -12,6 +12,9 @@ export async function PATCH(
   try {
     const { id } = await params;
     const body   = await req.json();
+    if (body.role) {
+      body.role = String(body.role).toLowerCase();
+    }
     const db     = createServerSupabase();
 
     // Kalau ada password baru, hash dulu

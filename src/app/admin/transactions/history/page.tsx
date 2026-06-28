@@ -6,6 +6,7 @@ import {
   Search, MessageCircle, RefreshCw, Plus, X, Loader2,
   AlertTriangle, Zap, Save, Copy, Check, Trash2, History, ChevronDown,
   CalendarDays, CalendarRange, FilterX, FileDown, FileSpreadsheet, FileText,
+  ChevronLeft, ChevronRight,
 } from "lucide-react";
 import { useAlarm } from "@/hooks/useAlarm";
 import AlarmControl from "@/components/AlarmControl";
@@ -80,6 +81,15 @@ export default function AdminTransactionsHistoryPage() {
   const [gameFilter, setGameFilter] = useState("");
   const [search,  setSearch]  = useState("");
   const [limit,   setLimit]   = useState(50);
+  const [page,    setPage]    = useState(1);
+  const [total,   setTotal]   = useState(0);
+  const [adminRole, setAdminRole] = useState("");
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setAdminRole(localStorage.getItem("admin_role") ?? "");
+    }
+  }, []);
+  const isSuperadmin = adminRole.toLowerCase() === "superadmin";
   const [loading,       setLoading]       = useState(true);
   const [updating,      setUpdating]       = useState<string|null>(null);
   const [copiedGameId,  setCopiedGameId]   = useState<string|null>(null);
@@ -122,11 +132,24 @@ export default function AdminTransactionsHistoryPage() {
   const getPending   = useCallback(() => pendingCount, [pendingCount]);
   const { config: alarmConfig, updateConfig, testAlarm, unlock } = useAlarm(getPending);
 
+  /* Reset page to 1 when filters or limit change */
+  useEffect(() => {
+    setPage(1);
+  }, [filter, gameFilter, search, limit, showToday, dateFrom, dateTo]);
+
   /* ── Fetch transaksi ── */
   const fetchTransactions = useCallback(async () => {
     try {
-      const params = new URLSearchParams({ limit: limit.toString() });
-      if (filter !== "all") params.set("status", filter);
+      const offset = (page - 1) * limit;
+      const params = new URLSearchParams({
+        limit: limit.toString(),
+        offset: offset.toString(),
+      });
+      if (filter !== "all") {
+        params.set("status", filter);
+      } else {
+        params.set("status", "selesai,batal");
+      }
       if (showToday) {
         params.set("date_from", todayStr);
         params.set("date_to",   todayStr);
@@ -136,10 +159,11 @@ export default function AdminTransactionsHistoryPage() {
       }
       const res  = await fetch(`/api/admin/transactions?${params}`);
       const data = await res.json();
-      if (data.transactions) setTransactions(data.transactions.filter((t: Transaction) => t.status !== "pending"));
+      if (data.transactions) setTransactions(data.transactions);
+      if (typeof data.total === "number") setTotal(data.total);
     } catch (err) { console.error(err); }
     finally { setLoading(false); }
-  }, [filter, showToday, dateFrom, dateTo, todayStr, limit]);
+  }, [filter, showToday, dateFrom, dateTo, todayStr, limit, page]);
 
   useEffect(() => { setLoading(true); fetchTransactions(); }, [fetchTransactions]);
 
@@ -810,15 +834,17 @@ export default function AdminTransactionsHistoryPage() {
           </div>
 
           {/* Bulk delete */}
-          <button
-            id="bulk-delete-btn"
-            onClick={() => setShowBulkDeleteConfirm(true)}
-            className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl transition-all hover:opacity-90"
-            style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.35)" }}
-          >
-            <Trash2 size={12} />
-            Hapus {selectedIds.size} Transaksi
-          </button>
+          {isSuperadmin && (
+            <button
+              id="bulk-delete-btn"
+              onClick={() => setShowBulkDeleteConfirm(true)}
+              className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl transition-all hover:opacity-90"
+              style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.35)" }}
+            >
+              <Trash2 size={12} />
+              Hapus {selectedIds.size} Transaksi
+            </button>
+          )}
         </div>
       )}
 
@@ -856,7 +882,7 @@ export default function AdminTransactionsHistoryPage() {
                   </th>
                   <th>Invoice</th><th>Game ID</th><th>Nama</th>
                   <th>Paket</th><th>Harga</th><th>WhatsApp</th><th>Bukti Transfer</th><th>Catatan</th>
-                  <th>Waktu</th><th>Status</th><th>Ubah Status</th><th>Diproses Oleh</th><th></th>
+                  <th>Waktu</th><th>Status</th><th>Ubah Status</th><th>Diproses Oleh</th>{isSuperadmin && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -1037,22 +1063,24 @@ export default function AdminTransactionsHistoryPage() {
                           </div>
                         ) : <span className="text-xs" style={{ color: "var(--border)" }}>—</span>}
                       </td>
-                      <td className="text-right">
-                        <button
-                          id={`del-tx-${t.id}`}
-                          title="Hapus transaksi"
-                          onClick={() => setDeleteTarget(t)}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110 active:scale-95"
-                          style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
-                          <Trash2 size={13} />
-                        </button>
-                      </td>
+                      {isSuperadmin && (
+                        <td className="text-right">
+                          <button
+                            id={`del-tx-${t.id}`}
+                            title="Hapus transaksi"
+                            onClick={() => setDeleteTarget(t)}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110 active:scale-95"
+                            style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
                 {filtered.length === 0 && (
                   <tr>
-                    <td colSpan={12} className="text-center py-12" style={{ color: "var(--text-muted)" }}>
+                    <td colSpan={isSuperadmin ? 14 : 13} className="text-center py-12" style={{ color: "var(--text-muted)" }}>
                       <MessageCircle size={36} className="mx-auto mb-3 opacity-20" />
                       <p className="text-sm">{search ? `Tidak ada hasil untuk "${search}"` : "Belum ada transaksi"}</p>
                     </td>
@@ -1078,7 +1106,7 @@ export default function AdminTransactionsHistoryPage() {
                         )}
                       </div>
                     </td>
-                    <td colSpan={6} />
+                    <td colSpan={isSuperadmin ? 7 : 6} />
                   </tr>
                 </tfoot>
               )}
@@ -1086,13 +1114,52 @@ export default function AdminTransactionsHistoryPage() {
           </div>
         )}
         {!loading && filtered.length > 0 && (
-          <div className="px-6 py-3 text-xs flex items-center gap-3 flex-wrap" style={{ borderTop: "1px solid var(--border)", color: "var(--text-muted)" }}>
-            Menampilkan <strong>{filtered.length}</strong> transaksi
-            {gameFilter && (
-              <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 6, background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.3)", color: "#a78bfa", fontSize: 11, fontWeight: 700 }}>
-                🎮 {gameFilter}
-                <button onClick={() => setGameFilter("")} style={{ marginLeft: 2, cursor: "pointer", color: "#a78bfa", opacity: 0.7 }}>×</button>
-              </span>
+          <div className="px-6 py-4 text-xs flex items-center justify-between gap-4 flex-wrap" style={{ borderTop: "1px solid var(--border)", color: "var(--text-muted)" }}>
+            <div className="flex items-center gap-2">
+              <span>Menampilkan <strong>{filtered.length}</strong> dari <strong>{total}</strong> transaksi</span>
+              {gameFilter && (
+                <span style={{ display: "inline-flex", alignItems: "center", gap: 4, padding: "2px 8px", borderRadius: 6, background: "rgba(167,139,250,0.12)", border: "1px solid rgba(167,139,250,0.3)", color: "#a78bfa", fontSize: 11, fontWeight: 700 }}>
+                  🎮 {gameFilter}
+                  <button onClick={() => setGameFilter("")} style={{ marginLeft: 2, cursor: "pointer", color: "#a78bfa", opacity: 0.7 }}>×</button>
+                </span>
+              )}
+            </div>
+
+            {/* Pagination Controls */}
+            {total > limit && (
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => setPage(p => Math.max(1, p - 1))}
+                  disabled={page === 1}
+                  className="p-1.5 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-opacity-80 active:scale-95"
+                  style={{
+                    background: "var(--bg-secondary)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-secondary)",
+                    cursor: page === 1 ? "not-allowed" : "pointer"
+                  }}
+                  title="Previous Page"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="font-semibold px-2">
+                  Halaman {page} dari {Math.ceil(total / limit)}
+                </span>
+                <button
+                  onClick={() => setPage(p => Math.min(Math.ceil(total / limit), p + 1))}
+                  disabled={page >= Math.ceil(total / limit)}
+                  className="p-1.5 rounded-lg flex items-center justify-center transition-all disabled:opacity-30 disabled:cursor-not-allowed hover:bg-opacity-80 active:scale-95"
+                  style={{
+                    background: "var(--bg-secondary)",
+                    border: "1px solid var(--border)",
+                    color: "var(--text-secondary)",
+                    cursor: page >= Math.ceil(total / limit) ? "not-allowed" : "pointer"
+                  }}
+                  title="Next Page"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
             )}
           </div>
         )}

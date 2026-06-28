@@ -13,7 +13,7 @@ export async function GET(req: NextRequest) {
     const db = createServerSupabase();
     let q = db
       .from("transactions")
-      .select("*")
+      .select("*", { count: "exact" })
       .order("created_at", { ascending: false });
 
     if (status !== "all") {
@@ -28,10 +28,10 @@ export async function GET(req: NextRequest) {
     if (limit)            q = q.limit(limit);
     if (offset)           q = q.range(offset, offset + limit - 1);
 
-    const { data, error } = await q;
+    const { data, error, count } = await q;
     if (error) throw error;
 
-    return NextResponse.json({ transactions: data ?? [], stats: null });
+    return NextResponse.json({ transactions: data ?? [], total: count ?? 0, stats: null });
   } catch (err) {
     console.error("Get transactions error:", err);
     return NextResponse.json({ error: "Internal server error" }, { status: 500 });

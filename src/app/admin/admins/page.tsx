@@ -144,7 +144,7 @@ export default function AdminAdminsPage() {
           display_name: form.display_name.trim() || null,
           email:        form.email.trim(),
           password:     form.password,
-          role:         form.role.trim(),
+          role:         form.role.trim().toLowerCase(),
           permissions:  form.role.toLowerCase() === "superadmin" ? null : editPerms,
         }),
       });
@@ -166,7 +166,7 @@ export default function AdminAdminsPage() {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          role:         form.role.trim(),
+          role:         form.role.trim().toLowerCase(),
           email:        form.email.trim(),
           display_name: form.display_name.trim() || null,
         }),

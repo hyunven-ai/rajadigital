@@ -71,6 +71,13 @@ export default function AdminBongkarChipPage() {
   const [gameFilter, setGameFilter] = useState("");
   const [bankFilter, setBankFilter] = useState("");
   const [search, setSearch]     = useState("");
+  const [adminRole, setAdminRole] = useState("");
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setAdminRole(localStorage.getItem("admin_role") ?? "");
+    }
+  }, []);
+  const isSuperadmin = adminRole.toLowerCase() === "superadmin";
   const [loading, setLoading]   = useState(true);
   const [updating, setUpdating] = useState<string | null>(null);
   const [copied, setCopied]     = useState<string | null>(null);
@@ -491,11 +498,13 @@ export default function AdminBongkarChipPage() {
               {bulkUpdating ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Terapkan
             </button>
           </div>
-          <button id="bulk-delete-btn" onClick={() => setShowBulkDelConfirm(true)}
-            className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl"
-            style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.35)" }}>
-            <Trash2 size={12} /> Hapus {selected.size}
-          </button>
+          {isSuperadmin && (
+            <button id="bulk-delete-btn" onClick={() => setShowBulkDelConfirm(true)}
+              className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl"
+              style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.35)" }}>
+              <Trash2 size={12} /> Hapus {selected.size}
+            </button>
+          )}
         </div>
       )}
 
@@ -550,7 +559,7 @@ export default function AdminBongkarChipPage() {
                   </th>
                   <th>Invoice</th><th>Game</th><th>Player ID</th><th>Nominal</th>
                   <th>Bank</th><th>No. Rekening</th><th>Nama Rekening</th>
-                  <th>WhatsApp</th><th>Waktu</th><th>Pembayaran</th><th>Status</th><th>Ubah Status</th><th>Diproses Oleh</th><th></th>
+                  <th>WhatsApp</th><th>Waktu</th><th>Pembayaran</th><th>Status</th><th>Ubah Status</th><th>Diproses Oleh</th>{isSuperadmin && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -715,13 +724,15 @@ export default function AdminBongkarChipPage() {
                           </div>
                         ) : <span className="text-xs" style={{ color: "var(--border)" }}>—</span>}
                       </td>
-                      <td className="text-right">
-                        <button id={`delete-bongkar-${r.id}`} onClick={() => setDeleteTarget(r)}
-                          className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110 active:scale-95"
-                          style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
-                          <Trash2 size={13} />
-                        </button>
-                      </td>
+                      {isSuperadmin && (
+                        <td className="text-right">
+                          <button id={`delete-bongkar-${r.id}`} onClick={() => setDeleteTarget(r)}
+                            className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110 active:scale-95"
+                            style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
+                            <Trash2 size={13} />
+                          </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -743,7 +754,7 @@ export default function AdminBongkarChipPage() {
                       <span style={{ color: "var(--text-muted)", fontSize: 11 }}>—</span>
                     )}
                   </td>
-                  <td colSpan={4} />
+                  <td colSpan={isSuperadmin ? 4 : 3} />
                 </tr>
               </tfoot>
             </table>

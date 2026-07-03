@@ -133,7 +133,7 @@ export default function BongkarAnalyticsPage() {
       <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", flexWrap: "wrap", gap: 12, marginBottom: 24 }}>
         <div>
           <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <Link href="/admin/bongkar-chip" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", textDecoration: "none" }}>
+            <Link href="/admin/bongkar" style={{ display: "flex", alignItems: "center", gap: 6, fontSize: 12, color: "var(--text-muted)", textDecoration: "none" }}>
               <ArrowLeft size={13} /> Bongkar Chip
             </Link>
           </div>

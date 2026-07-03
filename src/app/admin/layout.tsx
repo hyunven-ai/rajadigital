@@ -64,8 +64,8 @@ const navItems = [
     label: "Bongkar Chip",
     icon: Zap,
     subItems: [
-      { href: "/admin/bongkar-chip",         label: "Bongkar Chip Masuk",   permKey: "bongkar_chip" as PermKey },
-      { href: "/admin/bongkar-chip/history", label: "History Bongkar Chip", permKey: "bongkar_chip_history" as PermKey },
+      { href: "/admin/bongkar",         label: "Bongkar Chip Masuk",   permKey: "bongkar_chip" as PermKey },
+      { href: "/admin/bongkar/history", label: "History Bongkar Chip", permKey: "bongkar_chip_history" as PermKey },
     ],
   },
   { href: "/admin/products", label: "Produk",       icon: Package,   permKey: "products" as PermKey },

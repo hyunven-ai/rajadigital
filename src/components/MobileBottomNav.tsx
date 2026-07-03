@@ -358,7 +358,7 @@ export default function MobileBottomNav() {
           {/* Bongkar */}
           <Link
             id="mobile-nav-bongkar"
-            href="/bongkar-chip"
+            href="/bongkar"
             style={{
               display: "flex", flexDirection: "column", alignItems: "center",
               justifyContent: "center", gap: "3px", flex: 1,
@@ -368,19 +368,19 @@ export default function MobileBottomNav() {
             <div style={{
               display: "flex", alignItems: "center", justifyContent: "center",
               width: "28px", height: "28px", borderRadius: "8px",
-              background: pathname === "/bongkar-chip" ? "rgba(239,68,68,0.15)" : "transparent",
+              background: pathname === "/bongkar" ? "rgba(239,68,68,0.15)" : "transparent",
               transition: "background 0.2s",
             }}>
               <Zap
                 size={20}
-                style={{ color: pathname === "/bongkar-chip" ? "#f87171" : "var(--text-muted)", transition: "color 0.2s" }}
-                strokeWidth={pathname === "/bongkar-chip" ? 2.5 : 2}
+                style={{ color: pathname === "/bongkar" ? "#f87171" : "var(--text-muted)", transition: "color 0.2s" }}
+                strokeWidth={pathname === "/bongkar" ? 2.5 : 2}
               />
             </div>
             <span style={{
               fontSize: "10px",
-              fontWeight: pathname === "/bongkar-chip" ? 700 : 500,
-              color: pathname === "/bongkar-chip" ? "#f87171" : "var(--text-muted)",
+              fontWeight: pathname === "/bongkar" ? 700 : 500,
+              color: pathname === "/bongkar" ? "#f87171" : "var(--text-muted)",
               letterSpacing: "0.02em",
               transition: "color 0.2s",
             }}>

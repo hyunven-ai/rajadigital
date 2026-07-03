@@ -135,7 +135,7 @@ export default function BongkarChipPage() {
 
     setLoading(true);
     try {
-      const res = await fetch("/api/bongkar-chip", {
+      const res = await fetch("/api/bongkar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -202,7 +202,7 @@ Mohon proses request bongkar chip saya. Terima kasih! 🙏`;
     if (!cekQuery.trim()) return;
     setCekError(""); setCekResults(null); setCekLoading(true);
     try {
-      const res = await fetch(`/api/bongkar-chip?search=${encodeURIComponent(cekQuery.trim())}`);
+      const res = await fetch(`/api/bongkar?search=${encodeURIComponent(cekQuery.trim())}`);
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Gagal mencari");
       setCekResults(data.requests ?? []);

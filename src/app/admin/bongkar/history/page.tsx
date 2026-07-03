@@ -2,10 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
-import { supabase } from "@/lib/supabase";
 import { GAMES } from "@/lib/games";
-import { useAlarm } from "@/hooks/useAlarm";
-import AlarmControl from "@/components/AlarmControl";
 import {
   Search, RefreshCw, Trash2, CheckCircle, XCircle, Clock,
   Loader2, CalendarDays, FilterX, ChevronDown, Copy, Check,
@@ -53,7 +50,6 @@ const BANK_LIST = [
 ];
 
 const EMPTY_FORM = {
-  game_name: "",
   player_id: "",
   nominal_bongkar: "",
   bank: "",
@@ -64,34 +60,29 @@ const EMPTY_FORM = {
 };
 
 const FILTERS = [
-  { key: "pending,diproses", label: "Semua Masuk" },
-  { key: "pending", label: "Pending" },
-  { key: "diproses", label: "Diproses" },
+  { key: "selesai,batal", label: "Semua History" },
+  { key: "selesai", label: "Selesai" },
+  { key: "batal", label: "Batal" },
 ];
 
 export default function AdminBongkarChipPage() {
   const [rows, setRows]         = useState<BongkarRequest[]>([]);
-  const [filter, setFilter]     = useState("pending,diproses");
+  const [filter, setFilter]     = useState("selesai,batal");
   const [gameFilter, setGameFilter] = useState("");
   const [bankFilter, setBankFilter] = useState("");
   const [search, setSearch]     = useState("");
-  const [loading, setLoading]   = useState(true);
-  const [updating, setUpdating] = useState<string | null>(null);
-  const [copied, setCopied]     = useState<string | null>(null);
-
   const [adminRole, setAdminRole] = useState("");
   useEffect(() => {
     if (typeof window !== "undefined") {
       setAdminRole(localStorage.getItem("admin_role") ?? "");
     }
   }, []);
-
+  const isSuperadmin = adminRole.toLowerCase() === "superadmin";
+  const [loading, setLoading]   = useState(true);
+  const [updating, setUpdating] = useState<string | null>(null);
+  const [copied, setCopied]     = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<BongkarRequest | null>(null);
   const [deleting, setDeleting] = useState(false);
-
-  const pendingCount = rows.filter(r => r.status === "pending").length;
-  const getPending   = useCallback(() => pendingCount, [pendingCount]);
-  const { config: alarmConfig, updateConfig, testAlarm, unlock, triggerImmediate } = useAlarm(getPending);
 
   // Form tambah manual
   const [showForm, setShowForm]   = useState(false);
@@ -128,10 +119,10 @@ export default function AdminBongkarChipPage() {
     try {
       const p = new URLSearchParams({ limit: "200" });
       if (filter && filter !== "all") p.set("status", filter);
-      else p.set("status", "pending,diproses");
+      else p.set("status", "selesai,batal");
       if (showToday) { p.set("date_from", todayStr); p.set("date_to", todayStr); }
       else { if (dateFrom) p.set("date_from", dateFrom); if (dateTo) p.set("date_to", dateTo); }
-      const res  = await fetch(`/api/bongkar-chip?${p}`);
+      const res  = await fetch(`/api/bongkar?${p}`);
       const data = await res.json();
       if (data.requests) setRows(data.requests);
     } catch (e) { console.error(e); }
@@ -152,47 +143,6 @@ export default function AdminBongkarChipPage() {
   }, []);
 
   useEffect(() => { if (showLogs) fetchLogs(); }, [showLogs, fetchLogs]);
-
-  /* realtime */
-  const [realtimeConnected, setRealtimeConnected] = useState(false);
-
-  useEffect(() => {
-    const channel = supabase
-      .channel("admin-bongkar-chip")
-      .on(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        "postgres_changes" as any,
-        { event: "INSERT", schema: "public", table: "bongkar_chip_requests" },
-        (payload: { new: BongkarRequest }) => {
-          const r = payload.new;
-          setRows(prev => {
-            if (prev.some(x => x.id === r.id)) return prev;
-            return [r, ...prev];
-          });
-          triggerImmediate("Bongkar Chip Baru!", `Request ${r.nominal_bongkar}B dari ${r.player_id}`);
-        }
-      )
-      .on(
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        "postgres_changes" as any,
-        { event: "UPDATE", schema: "public", table: "bongkar_chip_requests" },
-        (payload: { new: BongkarRequest }) => {
-          const updated = payload.new;
-          if (updated.status === "selesai" || updated.status === "batal") {
-             setRows(prev => prev.filter(x => x.id !== updated.id));
-          } else {
-             setRows(prev => prev.map(x => x.id === updated.id ? updated : x));
-          }
-        }
-      )
-      .subscribe((status) => {
-        setRealtimeConnected(status === "SUBSCRIBED");
-      });
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
-  }, []);
 
   /* filtered */
   const uniqueGames = Array.from(new Set(rows.map(r => r.game_name).filter(Boolean))).sort() as string[];
@@ -230,14 +180,10 @@ export default function AdminBongkarChipPage() {
       return;
     }
     setUpdating(id);
-    if (status === "selesai" || status === "batal") {
-      setRows(prev => prev.filter(r => r.id !== id));
-    } else {
-      setRows(prev => prev.map(r => r.id === id ? { ...r, status: status as BongkarRequest["status"] } : r));
-    }
+    setRows(prev => prev.map(r => r.id === id ? { ...r, status: status as BongkarRequest["status"] } : r));
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") ?? "" : "";
-      const res = await fetch(`/api/bongkar-chip/${id}`, {
+      const res = await fetch(`/api/bongkar/${id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -255,10 +201,10 @@ export default function AdminBongkarChipPage() {
     if (!payModal) return;
     setPaySubmitting(true);
     const nominalNum = payModal.nominal ? parseInt(payModal.nominal) : undefined;
-    setRows(prev => prev.filter(r => r.id !== payModal.id));
+    setRows(prev => prev.map(r => r.id === payModal.id ? { ...r, status: "selesai", nominal_pembayaran: nominalNum } : r));
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") ?? "" : "";
-      await fetch(`/api/bongkar-chip/${payModal.id}`, {
+      await fetch(`/api/bongkar/${payModal.id}`, {
         method: "PATCH",
         headers: {
           "Content-Type": "application/json",
@@ -279,7 +225,7 @@ export default function AdminBongkarChipPage() {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") ?? "" : "";
       await Promise.all(ids.map(id =>
-        fetch(`/api/bongkar-chip/${id}`, {
+        fetch(`/api/bongkar/${id}`, {
           method: "PATCH",
           headers: {
             "Content-Type": "application/json",
@@ -288,11 +234,7 @@ export default function AdminBongkarChipPage() {
           body: JSON.stringify({ status: bulkStatus }),
         })
       ));
-      if (bulkStatus === "selesai" || bulkStatus === "batal") {
-        setRows(prev => prev.filter(r => !ids.includes(r.id)));
-      } else {
-        setRows(prev => prev.map(r => ids.includes(r.id) ? { ...r, status: bulkStatus as BongkarRequest["status"] } : r));
-      }
+      setRows(prev => prev.map(r => ids.includes(r.id) ? { ...r, status: bulkStatus as BongkarRequest["status"] } : r));
       setSelected(new Set());
     } catch { fetch_(); }
     finally { setBulkUpdating(false); }
@@ -305,7 +247,7 @@ export default function AdminBongkarChipPage() {
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") ?? "" : "";
       await Promise.all(ids.map(id =>
-        fetch(`/api/bongkar-chip/${id}`, {
+        fetch(`/api/bongkar/${id}`, {
           method: "DELETE",
           headers: token ? { Authorization: `Bearer ${token}` } : {},
         })
@@ -324,7 +266,7 @@ export default function AdminBongkarChipPage() {
     setDeleting(true);
     try {
       const token = typeof window !== "undefined" ? localStorage.getItem("admin_token") ?? "" : "";
-      const res = await fetch(`/api/bongkar-chip/${deleteTarget.id}`, {
+      const res = await fetch(`/api/bongkar/${deleteTarget.id}`, {
         method: "DELETE",
         headers: token ? { Authorization: `Bearer ${token}` } : {},
       });
@@ -339,7 +281,6 @@ export default function AdminBongkarChipPage() {
   /* handle save manual */
   const handleSave = async () => {
     setFormError("");
-    if (!form.game_name)             return setFormError("Pilih game terlebih dahulu.");
     if (!form.player_id.trim())      return setFormError("Player ID wajib diisi.");
     if (!form.nominal_bongkar)       return setFormError("Nominal bongkar wajib diisi.");
     const nom = parseInt(form.nominal_bongkar);
@@ -351,14 +292,13 @@ export default function AdminBongkarChipPage() {
     if (!form.whatsapp.trim())       return setFormError("Nomor WhatsApp wajib diisi.");
     const waRegex = /^(08|628)\d{8,12}$/;
     if (!waRegex.test(form.whatsapp.trim())) return setFormError("Nomor WhatsApp tidak valid (contoh: 08123456789 atau 628...)");
-
+    
     setSaving(true);
     try {
-      const res = await fetch("/api/bongkar-chip", {
+      const res = await fetch("/api/bongkar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          game_name:       form.game_name,
           player_id:       form.player_id.trim(),
           nominal_bongkar: nom,
           bank:            form.bank,
@@ -375,7 +315,7 @@ export default function AdminBongkarChipPage() {
       }
       // If status differs from default 'pending', update it
       if (form.status !== "pending" && data.request?.id) {
-        await fetch(`/api/bongkar-chip/${data.request.id}`, {
+        await fetch(`/api/bongkar/${data.request.id}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ status: form.status }),
@@ -392,6 +332,7 @@ export default function AdminBongkarChipPage() {
   };
 
   const copy = (text: string, key: string) => { navigator.clipboard.writeText(text); setCopied(key); setTimeout(() => setCopied(null), 2000); };
+  const pendingCount = rows.filter(r => r.status === "pending").length;
 
   return (
     <>
@@ -399,35 +340,13 @@ export default function AdminBongkarChipPage() {
       <div className="flex items-center justify-between mb-6 flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-black mb-1 flex items-center gap-2" style={{ fontFamily: "var(--font-outfit)", color: "var(--text-primary)" }}>
-            <Zap size={22} style={{ color: "#f87171" }} /> Bongkar Chip Masuk
+            <History size={22} style={{ color: "#f87171" }} /> History Bongkar Chip
           </h1>
-          <p className="text-sm flex items-center gap-2" style={{ color: "var(--text-muted)" }}>
-            Kelola dan proses semua request bongkar chip
-            <span
-              className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-xs font-semibold"
-              style={
-                realtimeConnected
-                  ? { background: "rgba(16,185,129,0.12)", border: "1px solid rgba(16,185,129,0.3)", color: "#10b981" }
-                  : { background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.25)", color: "#ef4444" }
-              }
-            >
-              <span
-                style={{
-                  width: 6, height: 6, borderRadius: "50%",
-                  background: realtimeConnected ? "#10b981" : "#ef4444",
-                  display: "inline-block",
-                  boxShadow: realtimeConnected ? "0 0 6px #10b981" : "none",
-                  animation: realtimeConnected ? "pulse 2s ease-in-out infinite" : "none",
-                }}
-              />
-              {realtimeConnected ? "Realtime aktif" : "Menghubungkan..."}
-            </span>
-          </p>
+          <p className="text-sm" style={{ color: "var(--text-muted)" }}>Kelola dan proses semua request bongkar chip</p>
         </div>
-        <div className="flex items-center gap-2 flex-wrap">
-          <AlarmControl config={alarmConfig} onChange={updateConfig} onTest={testAlarm} pendingCount={pendingCount} />
+        <div className="flex items-center gap-2">
           <Link
-            href="/admin/bongkar-chip/analytics"
+            href="/admin/bongkar/analytics"
             className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm font-semibold transition-all hover:opacity-80"
             style={{ background: "rgba(248,113,113,0.12)", border: "1px solid rgba(248,113,113,0.3)", color: "#f87171" }}
           >
@@ -438,11 +357,7 @@ export default function AdminBongkarChipPage() {
             style={{ background: "var(--bg-secondary)", border: "1px solid var(--border)", color: "var(--text-secondary)" }}>
             <RefreshCw size={14} className={loading ? "animate-spin" : ""} /> Refresh
           </button>
-          <button id="btn-tambah-bongkar"
-            onClick={() => { setShowForm(true); setForm(EMPTY_FORM); setFormError(""); }}
-            className="btn-gold flex items-center gap-2" style={{ padding: "10px 18px" }}>
-            <Plus size={16} /> Tambah Manual
-          </button>
+          {/* Removed Tambah Manual button */}
         </div>
       </div>
 
@@ -583,7 +498,7 @@ export default function AdminBongkarChipPage() {
               {bulkUpdating ? <Loader2 size={12} className="animate-spin" /> : <Save size={12} />} Terapkan
             </button>
           </div>
-          {adminRole === "superadmin" && (
+          {isSuperadmin && (
             <button id="bulk-delete-btn" onClick={() => setShowBulkDelConfirm(true)}
               className="flex items-center gap-1.5 text-xs font-bold px-3 py-2 rounded-xl"
               style={{ background: "rgba(239,68,68,0.15)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.35)" }}>
@@ -644,7 +559,7 @@ export default function AdminBongkarChipPage() {
                   </th>
                   <th>Invoice</th><th>Game</th><th>Player ID</th><th>Nominal</th>
                   <th>Bank</th><th>No. Rekening</th><th>Nama Rekening</th>
-                  <th>WhatsApp</th><th>Waktu</th><th>Pembayaran</th><th>Status</th><th>Ubah Status</th><th>Diproses Oleh</th><th></th>
+                  <th>WhatsApp</th><th>Waktu</th><th>Pembayaran</th><th>Status</th><th>Ubah Status</th><th>Diproses Oleh</th>{isSuperadmin && <th></th>}
                 </tr>
               </thead>
               <tbody>
@@ -809,15 +724,15 @@ export default function AdminBongkarChipPage() {
                           </div>
                         ) : <span className="text-xs" style={{ color: "var(--border)" }}>—</span>}
                       </td>
-                       <td className="text-right">
-                        {adminRole === "superadmin" && (
+                      {isSuperadmin && (
+                        <td className="text-right">
                           <button id={`delete-bongkar-${r.id}`} onClick={() => setDeleteTarget(r)}
                             className="w-7 h-7 flex items-center justify-center rounded-lg transition-all hover:scale-110 active:scale-95"
                             style={{ background: "rgba(239,68,68,0.1)", color: "#ef4444", border: "1px solid rgba(239,68,68,0.2)" }}>
                             <Trash2 size={13} />
                           </button>
-                        )}
-                      </td>
+                        </td>
+                      )}
                     </tr>
                   );
                 })}
@@ -839,7 +754,7 @@ export default function AdminBongkarChipPage() {
                       <span style={{ color: "var(--text-muted)", fontSize: 11 }}>—</span>
                     )}
                   </td>
-                  <td colSpan={4} />
+                  <td colSpan={isSuperadmin ? 4 : 3} />
                 </tr>
               </tfoot>
             </table>
@@ -1025,16 +940,6 @@ export default function AdminBongkarChipPage() {
                   <AlertCircle size={14} /> {formError}
                 </div>
               )}
-
-              {/* Game */}
-              <div>
-                <label className="block text-xs font-semibold mb-1.5" style={{ color: "var(--text-secondary)" }}>🎮 Game *</label>
-                <select id="form-bongkar-game" className="input-styled"
-                  value={form.game_name} onChange={e => setForm(f => ({ ...f, game_name: e.target.value }))}>
-                  <option value="" disabled>— Pilih Game —</option>
-                  {activeGames.map(g => <option key={g.id} value={g.name}>{g.name}</option>)}
-                </select>
-              </div>
 
               {/* Player ID */}
               <div>

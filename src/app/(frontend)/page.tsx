@@ -5,9 +5,10 @@
  * ke browser sudah berisi konten final. Tidak ada loading → tidak ada CLS.
  *
  * Komponen yang perlu interaktivitas (carousel, dll.) tetap "use client"
- * namun di-import di sini sebagai leaf node sehingga tidak memaksa seluruh
  * halaman menjadi Client Component.
  */
+export const dynamic = "force-dynamic";
+
 import Link from "next/link";
 import { Zap } from "lucide-react";
 import BannerCarousel from "@/components/BannerCarousel";
